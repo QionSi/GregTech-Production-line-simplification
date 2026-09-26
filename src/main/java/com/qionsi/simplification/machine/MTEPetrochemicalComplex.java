@@ -172,6 +172,22 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, current.offsetA(), current.offsetB(), current.offsetC());
     }
 
+    /**
+     * Shown in chat by the Multiblock Structure Hologram Projector when it projects this machine's shape. Returning
+     * something useful here is what tells the player the projector recognised the machine at all.
+     */
+    @Override
+    public String[] getStructureDescription(ItemStack stackSize) {
+        StructureBlueprint current = blueprint;
+        return new String[] { "\u00a7e\u77f3\u6cb9\u5316\u5de5\u7efc\u5408\u4f53\u00a7r / Petrochemical Complex",
+            "\u00a77Submerge the controller block in a Solid Steel Machine Casing wall; the shape is " + current
+                .width() + " wide x " + current.height() + " tall x " + current.depth() + " deep.",
+            "\u00a77S / O = Solid Steel Machine Casing (energy, maintenance, fluid input on S).",
+            "\u00a77B = Bronze Plated Bricks (item buses and fluid input/output hatches).",
+            "\u00a77M = muffler hatch slot, ~ = the controller.",
+            "\u00a77Add a Multiblock Structure Hologram Projector to see the hints, sneak-right-click it to build." };
+    }
+
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;

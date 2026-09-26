@@ -309,7 +309,15 @@ public final class PetrochemicalComplexStructure {
             return new Result(defaultBlueprint(), errors);
         }
 
-
+        StructureBlueprint blueprint = StructureBlueprint.parse(
+            errors,
+            source,
+            // The offset keys are only a fallback: the controller position is read from the `~` marker itself, so a
+            // stale or out of range value here can no longer stop the structure from loading.
+            parseInt(values, "offseta", 1, errors, source),
+            parseInt(values, "offsetb", 2, errors, source),
+            parseInt(values, "offsetc", 4, errors, source),
+            stages);
 
         String declaredOffsets = values.get("offseta") + "/" + values.get("offsetb") + "/" + values.get("offsetc");
         if (values.containsKey("offseta") && !declaredOffsets.equals(blueprint.offsetSummary())) {
@@ -425,7 +433,7 @@ public final class PetrochemicalComplexStructure {
 
             [structure]
             offsetA = 1
-            offsetB = 4
+            offsetB = 2
             offsetC = 4
 
             stage1 = OOO | OOO | OOOBBBB | OOOBBBB | S~SBBBB
