@@ -11,7 +11,7 @@
 | 机器结构（写死在代码里） | `PetrochemicalComplexStructure.shapeText()`（形状文本）+ `StructureBlueprint`（坐标换算） |
 | 配方池（配方类型） | `com.qionsi.simplification.recipe.ModRecipeMaps.petrochemicalComplexRecipes` |
 | 六个加工配方 + 控制器装配配方 | `com.qionsi.simplification.recipe.ModRecipes` |
-| NEI 页面布局 | `com.qionsi.simplification.recipe.PetrochemicalComplexFrontend` |
+| NEI 页面布局 | 直接用 GT 自带的 `LargeNEIFrontend`（在 `ModRecipeMaps` 里指定） |
 | 注册入口 | `com.qionsi.simplification.ModContent`（由 `CommonProxy.preInit` 调用） |
 | 本地化 | `assets/simplification/lang/{en_US,zh_CN}.lang` |
 
@@ -93,8 +93,11 @@
 
 > 每条配方的「单次耗电 = EU/t × 20 × 运行秒数」，与设计文档一致。
 
-NEI 页面（`PetrochemicalComplexFrontend`）：物品格 3 列一行放在上方，流体格在下面分两栏——输入 5 个一行（x=16），
-输出 3 个一行（x=106），因此电路 5 的 7 种流体输出排成 3 行也不会跑出 170×119 的页面，也不会压在 GT 图标上。
+NEI 页面用的是 GT 自带的 `LargeNEIFrontend`（`ModRecipeMaps` 里 `.frontend(LargeNEIFrontend::new)`）：
+物品格 3 个一行放在最上面，流体格在下面同样 3 个一行，物品和流体各占一条带；页面高度由行数自动算出（这里
+`maxIO(2, 3, 9, 9)` → 物品 1 行 + 流体 3 行 → 170×82 的标准页面），GT 图标被它挪到 (80,62) 这个没有格子的地方。
+所以电路 5 的 7 种流体输出（3 行）和电路 3 的 5 种流体输入都不会超出页面——之前自写的那个前端虽然算得下，
+但排版和 GT 惯例不一致，已经删掉改用这个。
 
 控制器本体用**装配机**合成：编程电路 15 + 1 个 LV 机器外壳 + 2 个任意 LV 电路 + 1 台 LV 蒸馏塔 + 1 台 LV 化学反应釜，30 秒 / 32 EU/t。
 

@@ -3,6 +3,7 @@ package com.qionsi.simplification.recipe;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMapBackend;
 import gregtech.api.recipe.RecipeMapBuilder;
+import gregtech.api.recipe.maps.LargeNEIFrontend;
 
 /**
  * Recipe pools added by this mod.
@@ -17,19 +18,23 @@ public final class ModRecipeMaps {
     /**
      * 石油化工综合体配方池 / Petrochemical Complex recipe pool.
      * <p>
-     * The UI is sized for the widest recipe in the pool: one programming circuit as the item input, up to two dust
-     * by-products, up to five fluid inputs and up to seven fluid outputs. These numbers only describe the NEI and GUI
-     * layout and do not restrict what a recipe may declare. {@link PetrochemicalComplexFrontend} decides where each
-     * slot is drawn.
+     * The UI is sized for the widest recipe in the pool: one programming circuit as the item input, up to three dust
+     * by-products, up to nine fluid inputs and up to nine fluid outputs. These numbers only describe the NEI and GUI
+     * layout and do not restrict what a recipe may declare.
+     * <p>
+     * The page uses GregTech's own {@link LargeNEIFrontend}, which is made for exactly this: machines with more items
+     * and fluids than fit in the default single row. It puts both bands into grids three slots wide, one band under the
+     * other, sizes the page from the row counts and moves the GregTech logo to a spot no slot reaches. The default
+     * frontend instead lays every fluid out in one row at {@code y = 62}, so a recipe with seven fluid outputs runs
+     * from x = 106 to x = 232, off the 170 pixel wide page.
      */
     public static final RecipeMap<RecipeMapBackend> petrochemicalComplexRecipes = RecipeMapBuilder
         .of("simplification.recipe.petrochemical_complex")
-        .maxIO(3, 6, 9, 9)
+        .maxIO(2, 3, 9, 9)
         .minInputs(0, 1)
-        .neiRecipeBackgroundSize(170, PetrochemicalComplexFrontend.backgroundHeight())
         .neiTransferRect(52, 24, 18, 54)
         .neiTransferRect(106, 24, 18, 54)
-        .frontend(PetrochemicalComplexFrontend::new)
+        .frontend(LargeNEIFrontend::new)
         .build();
 
     private ModRecipeMaps() {}
