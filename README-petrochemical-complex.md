@@ -54,6 +54,8 @@
 | `~` | 控制器本身 | — |
 | 空格 | 不校验 | — |
 
+以上位置都放舱室也可以，只要外壳还留着 **10 个脱氧钢机壳**和 **8 个镀铜砖块**。
+
 > 能源仓用的是 `HatchElement.Energy.or(HatchElement.ExoticEnergy)`，因此普通能源仓、无线能源仓
 > （`MTEWirelessEnergy`）和 TecTech 多A能源仓都可用，**激光靶仓**（`MTEHatchDynamoTunnel`）不在其中，符合要求。
 > 输入/输出总线与输入/输出仓用的是 GT 标准的 HatchElement，因此**样板输入总成**（`MTEHatchCraftingInputME`）
@@ -64,7 +66,17 @@
 - 基础并行数 **8**
 - 每提升 1 个能源仓电压等级，并行数 ×2（可叠加）
 - 启用完美超频（`ProcessingLogic.enablePerfectOverclock()`，即 4/4 超频，超频不损失效率）
+- **配方电压不受能源仓电压等级限制**：`ProcessingLogic.setUnlimitedTierSkips()` 关掉了 GT 默认的
+  「配方等级高于能源仓等级就报 insufficient voltage」那一步，任何等级的能源仓都能跑任何等级的配方。
+  剩下的只是普通的功率检查——能源仓合起来要供得起配方的 EU/t（例如 HV 的电路 5 需要 480 EU/t，
+  单个 LV 能源仓供不上，多插几个或插高一档的即可），这属于供电能力而不是电压等级限制。
 - 支持批量模式、支持防溢出销毁保护
+
+### 外壳最少方块数
+
+结构校验只要求外壳保留 **脱氧钢机械方块 ≥ 10**、**镀铜砖块 ≥ 8**（`MIN_SOLID_STEEL_CASINGS` /
+`MIN_BRONZE_CASINGS`），其余标了符号的位置都可以换成舱室——因为放了舱室的那个位置就不再计入外壳数量。
+（原来要求"和形状一样多"，等于一个舱室都不能放，机器永远无法成型，这次一并修掉了。）
 
 ## 配方
 

@@ -47,6 +47,12 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
     /** Base amount of parallel recipes this machine can run, before energy hatch bonus. */
     public static final int BASE_PARALLELS = 8;
 
+    /** Solid Steel Machine Casing the shell has to keep, the rest of the marked spots being free for hatches. */
+    public static final int MIN_SOLID_STEEL_CASINGS = 10;
+
+    /** Bronze Plated Bricks the shell has to keep. */
+    public static final int MIN_BRONZE_CASINGS = 8;
+
     /**
      * The shape of the machine and the StructureLib definition built from it. See
      * {@link PetrochemicalComplexStructure#shapeText()} for where the shape is written.
@@ -111,19 +117,21 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
             for (String problem : blueprint.validate()) {
                 MyMod.LOG.warn("[petrochemical complex structure] {}", problem);
             }
-            PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure
-                .expectedCasings(blueprint);
+            PetrochemicalComplexStructure.CasingCounts shell = PetrochemicalComplexStructure.expectedCasings(blueprint);
             MyMod.LOG.info(
                 "Petrochemical Complex structure: {} wide x {} tall x {} deep, controller at A/B/C {} (front slice, "
-                    + "level {} from the top, column {}), at least {} solid steel and {} bronze plated bricks",
+                    + "level {} from the top, column {}), shell of {} steel and {} bronze, of which {} and {} must stay "
+                    + "casings",
                 blueprint.width(),
                 blueprint.height(),
                 blueprint.depth(),
                 blueprint.offsetSummary(),
                 blueprint.offsetB() + 1,
                 blueprint.offsetA() + 1,
-                minimum.solidSteel(),
-                minimum.bronze());
+                shell.solidSteel(),
+                shell.bronze(),
+                minimumSolidSteelCasings(blueprint),
+                minimumBronzeCasings(blueprint));
             return definition;
         } catch (Throwable t) {
             MyMod.LOG.error(
@@ -162,14 +170,34 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         StructureBlueprint blueprint = refreshStructure();
         if (!checkPiece(STRUCTURE_PIECE_MAIN, blueprint.offsetA(), blueprint.offsetB(), blueprint.offsetC(), errors))
             return;
-        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(blueprint);
-        checkCasingMin(errors, mSolidSteelCasings, minimum.solidSteel());
-        checkCasingMin(errors, mBronzeCasings, minimum.bronze());
+        // Only a floor on the casing count, not the shape's full count: every other marked spot is free for a hatch,
+        // and a hatch does not count as a casing because the hatch adder stops before the casing element runs.
+        checkCasingMin(errors, mSolidSteelCasings, minimumSolidSteelCasings(blueprint));
+        checkCasingMin(errors, mBronzeCasings, minimumBronzeCasings(blueprint));
         checkHasAnyEnergy(errors);
         checkOneMaintenanceHatch(errors);
         checkOneMufflerHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    /**
+     * Solid Steel Machine Casing the shell has to keep. The shape marks 41 of them, but all but ten may be replaced by
+     * a hatch. Never more than the shape actually has, so that the fallback structure still forms.
+     */
+    private static int minimumSolidSteelCasings(StructureBlueprint blueprint) {
+        return Math.min(
+            MIN_SOLID_STEEL_CASINGS,
+            PetrochemicalComplexStructure.expectedCasings(blueprint)
+                .solidSteel());
+    }
+
+    /** Bronze Plated Bricks the shell has to keep. See {@link #minimumSolidSteelCasings}. */
+    private static int minimumBronzeCasings(StructureBlueprint blueprint) {
+        return Math.min(
+            MIN_BRONZE_CASINGS,
+            PetrochemicalComplexStructure.expectedCasings(blueprint)
+                .bronze());
     }
 
     @Override
@@ -246,7 +274,6 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         // The item's tooltip is built once, the first time something asks for it, so an edit to the shape needs a
         // restart to show up here, even though the structure itself follows the source immediately.
         StructureBlueprint blueprint = refreshStructure();
-        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(blueprint);
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Petrochemical Complex")
             .addInfo("Processes Oil into various chemical products in a single step")
@@ -258,6 +285,7 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
             .addDynamicMultiplicativeParallelInfo(2, TooltipTier.VOLTAGE)
             .addPerfectOCInfo()
             .addSupportMultiAmp()
+            .addInfo("Accepts recipes of any voltage, whatever tier the energy hatches are")
             .addSeparator()
             // Sizes, counts and the controller's own position come from the shape, so an edit to the structure keeps
             // the tooltip correct. beginStructureBlock takes depth, width and height in that order.
@@ -266,8 +294,8 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
                 "Front slice, level " + (blueprint.offsetB() + 1)
                     + " from the top, column "
                     + (blueprint.offsetA() + 1))
-            .addCasing(minimum.bronze() + "+", "Bronze Plated Bricks", false)
-            .addCasing(minimum.solidSteel() + "+", "Solid Steel Machine Casing", false)
+            .addCasing(minimumBronzeCasings(blueprint) + "+", "Bronze Plated Bricks", false)
+            .addCasing(minimumSolidSteelCasings(blueprint) + "+", "Solid Steel Machine Casing", false)
             .addEnergyHatch("1+", "Bottom level of the steel tower", 1)
             .addMaintenanceHatch("1", "Bottom level of the steel tower", 1)
             .addInputHatch("1+", "Bottom level of the steel tower", 1)
@@ -279,10 +307,19 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         return tt;
     }
 
+    /**
+     * The recipe logic of the machine: perfect overclocking and no voltage ceiling.
+     * <p>
+     * {@code setUnlimitedTierSkips()} is what lifts the usual "the recipe is a higher tier than the energy hatch"
+     * refusal, so an energy hatch of any tier may run a recipe of any tier. What is left is the ordinary power check:
+     * the hatches still have to be able to supply the recipe's EU/t between them, which is a matter of how much power
+     * they can deliver rather than of which tier they are.
+     */
     @Override
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .enablePerfectOverclock();
+            .enablePerfectOverclock()
+            .setUnlimitedTierSkips();
     }
 
     /**
