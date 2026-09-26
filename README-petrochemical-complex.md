@@ -8,8 +8,10 @@
 | --- | --- |
 | 机器控制器 | `com.qionsi.simplification.machine.MTEPetrochemicalComplex` |
 | 机器 ID | `com.qionsi.simplification.MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER = 32700` |
+| 机器结构（写死在代码里） | `PetrochemicalComplexStructure.shapeText()`（形状文本）+ `StructureBlueprint`（坐标换算） |
 | 配方池（配方类型） | `com.qionsi.simplification.recipe.ModRecipeMaps.petrochemicalComplexRecipes` |
-| 六个配方 | `com.qionsi.simplification.recipe.ModRecipes` |
+| 六个加工配方 + 控制器装配配方 | `com.qionsi.simplification.recipe.ModRecipes` |
+| NEI 页面布局 | `com.qionsi.simplification.recipe.PetrochemicalComplexFrontend` |
 | 注册入口 | `com.qionsi.simplification.ModContent`（由 `CommonProxy.preInit` 调用） |
 | 本地化 | `assets/simplification/lang/{en_US,zh_CN}.lang` |
 
@@ -20,63 +22,42 @@
 
 - 显示名：**石油化工综合体**（英文 Petrochemical Complex）
 - 贴图：与**聚爆压缩机**相同（`OVERLAY_FRONT_IMPLOSION_COMPRESSOR` 系列 + Solid Steel Machine Casing 底材）
-- 结构：**7（宽）× 3（高）× 5（深）** —— 正面 3 列脱氧钢，背面 4 列镀铜砖块
+- 结构：**7（宽）× 5（高）× 3（深）**，控制器在正面墙的最底层，左边 3 列脱氧钢、右边 4 列镀铜砖块，镀铜部分只有下面 3 层
 
-> 结构**不再写死在代码里**，而是读 `config/simplification/petrochemical_complex_structure.cfg`。
-> 改完文件后 `/simplification reload` 即可生效，无需重启，已建好的机器也会自动重新校验。
+### 结构写法
+
+结构**写死在代码里**（`PetrochemicalComplexStructure.shapeText()`），一个字符串 = 一个**纵深切片**，
+第一个切片是**正面**（控制器所在的那面墙，也就是玩家面对的一面），切片内一行 = 一个**高度层**，
+第一行是**最上层**：
 
 ```
-                列: 1234567
-        ┌──────────────────┐
-层1 行1 │ OOO····          │   ← 行1 是最前排
-   行2 │ OOO····          │
-   行3 │ OOOBBBB          │
-   行4 │ OOOBBBB          │
-   行5 │ S~SBBBB          │   ← 控制器在列2
-        ├──────────────────┤
-层2 行1 │ OMO····          │   ← M = 消声仓
-   行2 │ O·O····          │
-   行3 │ O·O···B          │
-   行4 │ O·O···B          │
-   行5 │ SSSBBBB          │
-        ├──────────────────┤
-层3 行1 │ OOO····          │
-   行2 │ OOO····          │
-   行3 │ OOOBBBB          │
-   行4 │ OOOBBBB          │
-   行5 │ SSSBBBB          │
-        └──────────────────┘
+列:            1234567                列:            1234567                列:            1234567
+切片1（正面）  第1层(顶) OOO····       切片2（中间）  第1层(顶) OMO····       切片3（背面）  第1层(顶) OOO····
+              第2层     OOO····                     第2层     O·O····                     第2层     OOO····
+              第3层     OOOBBBB                     第3层     O·OBBBB                     第3层     OOOBBBB
+              第4层     OOOBBBB                     第4层     O·O···B                     第4层     OOOBBBB
+              第5层(底) S~SBBBB                     第5层(底) SSSBBBB                     第5层(底) SSSBBBB
 ```
 
-配置文件里的写法（行从前排到后排，用 `|` 分隔；空白处用空格，行尾无需补齐）：
+- `~` = 控制器：正面墙、最底层、左起第 2 列（A/B/C = 1/4/0）
+- `M` = 消声仓：最上层 3×3 钢板的中心
+- `·`（空格）= 结构校验**不检查**的位置
 
-```ini
-[structure]
-offsetA = 1          # 控制器所在列，0 = 最左
-offsetB = 0          # 控制器所在层，0 = 最底层
-offsetC = 4          # 控制器所在行，0 = 最前排
+符号含义与允许的舱室：
 
-stage1 = OOO | OOO | OOOBBBB | OOOBBBB | S~SBBBB
-stage2 = OMO | O O | O O   B | O O   B | SSSBBBB
-stage3 = OOO | OOO | OOOBBBB | OOOBBBB | SSSBBBB
-```
+| 符号 | 方块 | 允许的舱室 |
+| --- | --- | --- |
+| `S` | 最底层的脱氧钢机壳 | 能源仓（含无线/多A）、维护仓、输入仓 |
+| `O` | 最底层以上的脱氧钢机壳 | 输出仓 |
+| `B` | 镀铜砖块 | 输入总线、输出总线、输入仓、输出仓 |
+| `M` | 最上层中心的脱氧钢机壳 | 消声仓（有且仅有 1 个） |
+| `~` | 控制器本身 | — |
+| 空格 | 不校验 | — |
 
-- `B` = Bronze Plated Bricks，`S` = Solid Steel Machine Casing（可放能源/维护/输入仓），
-  `O` = 同 `S` 且额外可放输出仓/输出总线，`M` = 消声仓，`~` = 控制器，空格 = 必须是空气。
-- `~` 的位置必须和 `offsetA/offsetB/offsetC` 一致，解析时会交叉校验，不一致直接报错。
-
-### 舱室支持
-
-| 舱室 | 允许位置 |
-| --- | --- |
-| 能源仓 / 无线能源仓 / TecTech 多A能源仓 | 任意 `S` 或 `O` 脱氧钢方块 |
-| 维护仓 | 同上 |
-| 输入仓 | 同上 |
-| 输入总线 / 输出总线 / 输出仓 | 任意 `B` 镀铜砖块，以及 `O` 标记的脱氧钢方块 |
-| 消声仓 | `M` 位置（唯一，有且仅有 1 个） |
-
-> 激光靶仓（Laser Target Hatch）**不在**支持范围内：只启用 `HatchElement.Energy` 与 `HatchElement.ExoticEnergy`，
-> 后者只包含 TecTech 的多A能源仓与激光靶仓的输入侧，因此多A能源仓可用而激光靶仓不可用。
+> 能源仓用的是 `HatchElement.Energy.or(HatchElement.ExoticEnergy)`，因此普通能源仓、无线能源仓
+> （`MTEWirelessEnergy`）和 TecTech 多A能源仓都可用，**激光靶仓**（`MTEHatchDynamoTunnel`）不在其中，符合要求。
+> 输入/输出总线与输入/输出仓用的是 GT 标准的 HatchElement，因此**样板输入总成**（`MTEHatchCraftingInputME`）
+> 以及各种 ME 仓室都能放。
 
 ### 并行与超频
 
@@ -100,6 +81,11 @@ stage3 = OOO | OOO | OOOBBBB | OOOBBBB | SSSBBBB
 
 > 每条配方的「单次耗电 = EU/t × 20 × 运行秒数」，与设计文档一致。
 
+NEI 页面（`PetrochemicalComplexFrontend`）：物品格 3 列一行放在上方，流体格在下面分两栏——输入 5 个一行（x=16），
+输出 3 个一行（x=106），因此电路 5 的 7 种流体输出排成 3 行也不会跑出 170×119 的页面，也不会压在 GT 图标上。
+
+控制器本体用**装配机**合成：编程电路 15 + 1 个 LV 机器外壳 + 2 个任意 LV 电路 + 1 台 LV 蒸馏塔 + 1 台 LV 化学反应釜，30 秒 / 32 EU/t。
+
 ## 构建
 
 ```bat
@@ -108,3 +94,29 @@ gradlew.bat --offline build
 ```
 
 产物：`build/libs/simplification-<版本>+2.9.0-beta-2.jar`
+
+## 调试时的热更新（HotSwap）
+
+数据文件重载那套框架已经去掉，改成**调试器热替换（HotSwap）**：
+
+1. 以调试模式启动客户端（会挂在 5005 端口等调试器连上来）：
+
+   ```bat
+   gradlew.bat runClient --debug-jvm
+   ```
+
+2. IDEA：`Run → Attach to Process…` 选中客户端进程（或者建一个 `Remote JVM Debug` 配置，端口 5005）连接。
+3. 改完代码后按 `Ctrl+Shift+F9`（或调试器里的 *Reload changed classes*）把新字节码换进正在跑的进程里。
+
+能生效的范围：
+
+| 改动 | HotSwap | 说明 |
+| --- | --- | --- |
+| `shapeText()` 里的结构字符串 | ✅ 立刻生效 | `getStructureDefinition()` 每次结构校验都会把形状文本和上次的比一遍（只比字符串，不重新解析），不一样就重建结构定义 |
+| 各结构方块允许的舱室（`PetrochemicalComplexStructure.build()` 的方法体） | ✅ 立刻生效 | 同上，重建时会重新绑定元素 |
+| 配方数字（`ModRecipes` 里某个方法的方法体） | ⚠️ 需重跑注册 | 配方只在 preInit 注册一次，改完要么重启，要么手动重进一次游戏 |
+| 机器名称、tooltip、语言文件、贴图 | ❌ 需重启 | tooltip 在注册时生成一次，语言/资源在启动时加载 |
+| 新增/删除字段、方法、类，或改方法签名 | ❌ 需重启 | JVM 的 HotSwap 只能替换方法体 |
+
+> 结构定义不再放在类初始化块里，而是在第一次结构校验时构建（日志里会打印 `Petrochemical Complex structure: …`），
+> 这样即使形状写错（例如用了没绑定的符号），也只是回退成单方块结构并在日志里报错，不会把整个游戏带崩。

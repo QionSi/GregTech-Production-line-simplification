@@ -1,7 +1,5 @@
 package com.qionsi.simplification;
 
-import java.io.File;
-
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -18,13 +16,8 @@ public class CommonProxy {
         MyMod.LOG.info("I am MyMod at version " + Tags.VERSION);
 
         // GregTech loads in this same phase; its preload flag is already set by the time any mod's pre-init runs, so
-        // machine ids reserved below are registered safely here.
-        File configDirectory = event.getModConfigurationDirectory();
-        ModContent.register(configDirectory);
-        File directory = new File(configDirectory, MyMod.MODID);
-        RecipeAutoReloader.init(
-            new File(directory, com.qionsi.simplification.recipe.RecipeConfig.FILE_NAME),
-            new File(directory, com.qionsi.simplification.machine.PetrochemicalComplexStructure.FILE_NAME));
+        // the machine id reserved in MetaTileIDs is registered safely here.
+        ModContent.register();
     }
 
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
@@ -34,7 +27,5 @@ public class CommonProxy {
     public void postInit(FMLPostInitializationEvent event) {}
 
     // register server commands in this event handler (Remove if not needed)
-    public void serverStarting(FMLServerStartingEvent event) {
-        event.registerServerCommand(new com.qionsi.simplification.command.SimplificationCommand());
-    }
+    public void serverStarting(FMLServerStartingEvent event) {}
 }

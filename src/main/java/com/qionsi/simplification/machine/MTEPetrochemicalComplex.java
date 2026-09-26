@@ -5,6 +5,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_IMPLOSION_COM
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_IMPLOSION_COMPRESSOR_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_IMPLOSION_COMPRESSOR_GLOW;
 
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.item.ItemStack;
@@ -13,6 +14,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
+import com.qionsi.simplification.MyMod;
 
 import gregtech.api.casing.Casings;
 import gregtech.api.enums.SoundResource;
@@ -32,11 +34,10 @@ import gregtech.api.util.tooltip.TooltipTier;
 /**
  * 石油化工综合体 / Petrochemical Complex.
  * <p>
- * The shape is not written here: it is read from the {@code [structure]} section of
- * {@code config/simplification/petrochemical_complex_structure.cfg} by {@link PetrochemicalComplexStructure}, so the
- * structure can be changed and applied with {@code /simplification reload} without recompiling or restarting. The
- * shipped default is 3 wide x 8 tall x 3 deep, Bronze Plated Bricks for the bottom four stages and Solid Steel
- * Machine Casing above.
+ * The shape is written in code: {@link PetrochemicalComplexStructure#defaultBlueprint()} holds the one definition and
+ * {@link PetrochemicalComplexStructure#build} turns it into the StructureLib form, so a change to the structure is a
+ * plain edit to a Java file. While debugging, an edit inside an existing method body can be applied to the running game
+ * with the IDE's HotSwap; anything that adds a field, method or class needs a restart.
  */
 public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEPetrochemicalComplex>
     implements ISurvivalConstructable, ICasingTextureProvider {
@@ -47,41 +48,24 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
     public static final int BASE_PARALLELS = 8;
 
     /**
-     * The structure every machine instance currently uses. Replaced wholesale by
-     * {@link #setStructureBlueprint(StructureBlueprint)} when the file is reloaded, which is why it is a mutable
-     * holder rather than a constant.
-     */
-    /**
-     * The structure every machine instance currently uses. Replaced wholesale by
-     * {@link #setStructureBlueprint(StructureBlueprint)} when the file is reloaded, which is why it is a mutable
-     * holder rather than a constant.
+     * The shape of the machine and the StructureLib definition built from it. See
+     * {@link PetrochemicalComplexStructure#shapeText()} for where the shape is written.
      * <p>
-     * The initial value is built inside a try/catch: a class initialiser cannot throw, or the machine would fail to
-     * register and the game would refuse to start. If anything goes wrong here the machine falls back to the built-in
-     * shape and the reason is logged.
+     * The pair is refreshed by {@link #getStructureDefinition()} whenever the shape text changes, which is what makes
+     * the structure editable without a restart: with the client running under a debugger, editing the strings in
+     * {@link PetrochemicalComplexStructure#shapeText()} and letting the IDE swap that method body into the running game
+     * is enough for the next structure check to pick the new shape up.
+     * <p>
+     * Rebuilding is also why the definition is not a constant: StructureLib raises an exception for a shape containing
+     * a character it has no element for, and a definition built once in a class initialiser could only ever report that
+     * by taking the game down. Here the failure is caught and the machine falls back to a single block, so the game
+     * keeps running and the reason is in the log.
      */
-    private static volatile StructureBlueprint blueprint;
+    private static IStructureDefinition<MTEPetrochemicalComplex> DEFINITION;
 
-    private static volatile IStructureDefinition<MTEPetrochemicalComplex> definition;
-
-    static {
-        try {
-            blueprint = PetrochemicalComplexStructure.defaultBlueprint();
-            definition = PetrochemicalComplexStructure.build(blueprint);
-        } catch (Throwable t) {
-            com.qionsi.simplification.MyMod.LOG.error(
-                "Could not build the Petrochemical Complex structure definition; the machine will register with a "
-                    + "single block so the game can still start. Fix the structure file and run /simplification reload.",
-                t);
-            blueprint = StructureBlueprint.placeholder();
-            definition = PetrochemicalComplexStructure.build(blueprint);
-        }
-    }
-
-    /** Bumped on every reload so machines notice the structure changed. */
-    private static volatile int structureRevision;
-
-    private int seenRevision = -1;
+    /** The shape {@link #DEFINITION} was built from, and the text it was written as, so a change can be spotted. */
+    private static StructureBlueprint builtFrom;
+    private static String[] builtFromText;
 
     private int mSolidSteelCasings;
     private int mBronzeCasings;
@@ -95,23 +79,59 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
     }
 
     /**
-     * Swaps in a new shape. Called on the server thread during a reload; every machine picks the change up on its next
-     * structure check.
+     * Makes sure the definition matches the shape the source currently writes, and returns that shape.
+     * <p>
+     * Only the shape text is compared, so the usual case costs one array comparison and no parsing at all. The shape is
+     * parsed and the definition rebuilt the moment that text changes - which, during development, is what a HotSwapped
+     * edit to {@link PetrochemicalComplexStructure#shapeText()} looks like from here.
      */
-    public static void setStructureBlueprint(StructureBlueprint newBlueprint) {
-        blueprint = newBlueprint;
-        definition = PetrochemicalComplexStructure.build(newBlueprint);
-        structureRevision++;
+    private static StructureBlueprint refreshStructure() {
+        String[] currentText = PetrochemicalComplexStructure.shapeText();
+        if (DEFINITION == null || builtFromText == null || !Arrays.equals(builtFromText, currentText)) {
+            StructureBlueprint current = PetrochemicalComplexStructure.defaultBlueprint();
+            DEFINITION = buildDefinition(current);
+            builtFrom = current;
+            builtFromText = currentText;
+        }
+        return builtFrom;
     }
 
-    /** The shape currently in use. */
-    public static StructureBlueprint currentBlueprint() {
-        return blueprint;
+    /**
+     * Builds the structure definition now rather than at the first structure check. Called once, right after the
+     * machine is registered, so that a problem with the shape is reported while the log is still short instead of the
+     * first time a player builds the machine.
+     */
+    public static void prepareStructure() {
+        refreshStructure();
     }
 
-    /** Minimum casings the current shape asks for. */
-    public static PetrochemicalComplexStructure.CasingCounts expectedCasings() {
-        return PetrochemicalComplexStructure.expectedCasings(blueprint);
+    private static IStructureDefinition<MTEPetrochemicalComplex> buildDefinition(StructureBlueprint blueprint) {
+        try {
+            IStructureDefinition<MTEPetrochemicalComplex> definition = PetrochemicalComplexStructure.build(blueprint);
+            for (String problem : blueprint.validate()) {
+                MyMod.LOG.warn("[petrochemical complex structure] {}", problem);
+            }
+            PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure
+                .expectedCasings(blueprint);
+            MyMod.LOG.info(
+                "Petrochemical Complex structure: {} wide x {} tall x {} deep, controller at A/B/C {} (front slice, "
+                    + "level {} from the top, column {}), at least {} solid steel and {} bronze plated bricks",
+                blueprint.width(),
+                blueprint.height(),
+                blueprint.depth(),
+                blueprint.offsetSummary(),
+                blueprint.offsetB() + 1,
+                blueprint.offsetA() + 1,
+                minimum.solidSteel(),
+                minimum.bronze());
+            return definition;
+        } catch (Throwable t) {
+            MyMod.LOG.error(
+                "Could not build the Petrochemical Complex structure definition; the machine falls back to a single "
+                    + "block so the game keeps running.",
+                t);
+            return PetrochemicalComplexStructure.build(StructureBlueprint.placeholder());
+        }
     }
 
     @Override
@@ -121,7 +141,8 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
 
     @Override
     public IStructureDefinition<MTEPetrochemicalComplex> getStructureDefinition() {
-        return definition;
+        refreshStructure();
+        return DEFINITION;
     }
 
     /** Structure element callback: one more Bronze Plated Bricks block was found. */
@@ -138,9 +159,10 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
     public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> errors) {
         mSolidSteelCasings = 0;
         mBronzeCasings = 0;
-        StructureBlueprint current = blueprint;
-        if (!checkPiece(STRUCTURE_PIECE_MAIN, current.offsetA(), current.offsetB(), current.offsetC(), errors)) return;
-        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(current);
+        StructureBlueprint blueprint = refreshStructure();
+        if (!checkPiece(STRUCTURE_PIECE_MAIN, blueprint.offsetA(), blueprint.offsetB(), blueprint.offsetC(), errors))
+            return;
+        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(blueprint);
         checkCasingMin(errors, mSolidSteelCasings, minimum.solidSteel());
         checkCasingMin(errors, mBronzeCasings, minimum.bronze());
         checkHasAnyEnergy(errors);
@@ -148,28 +170,18 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         checkOneMufflerHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
-        seenRevision = structureRevision;
-    }
-
-    /**
-     * Re-checks the structure when the file has been reloaded, so a changed shape takes effect on machines that are
-     * already built instead of only on ones placed afterwards.
-     */
-    @Override
-    public void onPostTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
-        if (seenRevision != structureRevision && aBaseMetaTileEntity.isServerSide()) {
-            seenRevision = structureRevision;
-            // Ask the base class to re-run the structure check on one of its next few ticks.
-            mStructureChanged = true;
-            mUpdated = true;
-        }
-        super.onPostTick(aBaseMetaTileEntity, aTick);
     }
 
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
-        StructureBlueprint current = blueprint;
-        buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, current.offsetA(), current.offsetB(), current.offsetC());
+        StructureBlueprint blueprint = refreshStructure();
+        buildPiece(
+            STRUCTURE_PIECE_MAIN,
+            stackSize,
+            hintsOnly,
+            blueprint.offsetA(),
+            blueprint.offsetB(),
+            blueprint.offsetC());
     }
 
     /**
@@ -178,26 +190,27 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
      */
     @Override
     public String[] getStructureDescription(ItemStack stackSize) {
-        StructureBlueprint current = blueprint;
+        StructureBlueprint blueprint = refreshStructure();
         return new String[] { "\u00a7e\u77f3\u6cb9\u5316\u5de5\u7efc\u5408\u4f53\u00a7r / Petrochemical Complex",
-            "\u00a77Submerge the controller block in a Solid Steel Machine Casing wall; the shape is " + current
-                .width() + " wide x " + current.height() + " tall x " + current.depth() + " deep.",
-            "\u00a77S / O = Solid Steel Machine Casing (energy, maintenance, fluid input on S).",
-            "\u00a77B = Bronze Plated Bricks (item buses and fluid input/output hatches).",
-            "\u00a77M = muffler hatch slot, ~ = the controller.",
-            "\u00a77Add a Multiblock Structure Hologram Projector to see the hints, sneak-right-click it to build." };
+            "\u00a77The controller goes in the front wall. The shape is " + blueprint
+                .width() + " wide x " + blueprint.height() + " tall x " + blueprint.depth() + " deep.",
+            "\u00a77S = bottom level of the steel tower (energy, maintenance and fluid input hatches).",
+            "\u00a77O = steel above it (fluid output hatches).",
+            "\u00a77B = Bronze Plated Bricks (item buses, fluid input and output hatches).",
+            "\u00a77M = muffler in the middle of the top level, ~ = the controller.",
+            "\u00a77Sneak-right-click the controller with the projector to build it automatically." };
     }
 
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;
-        StructureBlueprint current = blueprint;
+        StructureBlueprint blueprint = refreshStructure();
         return survivalBuildPiece(
             STRUCTURE_PIECE_MAIN,
             stackSize,
-            current.offsetA(),
-            current.offsetB(),
-            current.offsetC(),
+            blueprint.offsetA(),
+            blueprint.offsetB(),
+            blueprint.offsetC(),
             elementBudget,
             env,
             false,
@@ -230,8 +243,10 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
 
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
-        StructureBlueprint shape = blueprint;
-        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(shape);
+        // The item's tooltip is built once, the first time something asks for it, so an edit to the shape needs a
+        // restart to show up here, even though the structure itself follows the source immediately.
+        StructureBlueprint blueprint = refreshStructure();
+        PetrochemicalComplexStructure.CasingCounts minimum = PetrochemicalComplexStructure.expectedCasings(blueprint);
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Petrochemical Complex")
             .addInfo("Processes Oil into various chemical products in a single step")
@@ -244,19 +259,22 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
             .addPerfectOCInfo()
             .addSupportMultiAmp()
             .addSeparator()
-            // Sizes come from the shape in use, so the tooltip stays correct when the structure file is edited.
-            .beginStructureBlock(shape.width(), shape.depth(), shape.height(), true)
-            .addController("Column " + shape.offsetA() + ", stage " + (shape.offsetB() + 1) + ", front row")
+            // Sizes, counts and the controller's own position come from the shape, so an edit to the structure keeps
+            // the tooltip correct. beginStructureBlock takes depth, width and height in that order.
+            .beginStructureBlock(blueprint.depth(), blueprint.width(), blueprint.height(), true)
+            .addController(
+                "Front slice, level " + (blueprint.offsetB() + 1)
+                    + " from the top, column "
+                    + (blueprint.offsetA() + 1))
             .addCasing(minimum.bronze() + "+", "Bronze Plated Bricks", false)
             .addCasing(minimum.solidSteel() + "+", "Solid Steel Machine Casing", false)
-            .addEnergyHatch("1+", "Any Solid Steel Machine Casing marked S", 1)
-            .addMaintenanceHatch("1", "Any Solid Steel Machine Casing marked S", 1)
-            .addInputHatch("1+", "Any Solid Steel Machine Casing marked S", 1)
+            .addEnergyHatch("1+", "Bottom level of the steel tower", 1)
+            .addMaintenanceHatch("1", "Bottom level of the steel tower", 1)
+            .addInputHatch("1+", "Bottom level of the steel tower", 1)
+            .addOutputHatch("1+", "Steel above the bottom level", 4)
             .addInputBus("1+", "Any Bronze Plated Bricks", 2)
-            .addOutputBus("1+", "Any Bronze Plated Bricks or Steel marked O", 2, 4)
-            .addOutputHatch("1+", "Any Bronze Plated Bricks or Steel marked O", 2, 4)
-            .addMufflerHatch("1", "The position marked M", 3)
-            .addAir("Inside the structure")
+            .addOutputBus("1+", "Any Bronze Plated Bricks", 2)
+            .addMufflerHatch("1", "Middle of the top level", 3)
             .toolTipFinisher();
         return tt;
     }

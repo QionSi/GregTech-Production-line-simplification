@@ -5,9 +5,35 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A multiblock structure, written as text so it can live in an editable file.
+ * The shape of a multiblock, written as a stack of depth slices.
  * <p>
- * See {@link PetrochemicalComplexStructure} for the file itself.
+ * The layout is the one StructureLib itself walks a shape in, so it can be read straight off the page:
+ *
+ * <pre>
+ * stage 0   the depth slice nearest the player, the one the controller's front faces
+ * stage 1   the slice behind it, and so on away from the player
+ *
+ * row 0     the top level of the machine
+ * row 1     the level below it, and so on down to the bottom
+ * column 0  the leftmost block as seen from the front, counting to the right
+ * </pre>
+ *
+ * <p>
+ * StructureLib wants its shape as {@code shape[depth][level][column]} and walks it in exactly that order, which is why
+ * {@link #toShapeArray()} hands the stages over unchanged.
+ *
+ * <h2>The anchor</h2>
+ *
+ * {@code checkPiece} is told where inside the shape the controller sits, in StructureLib's own axes:
+ *
+ * <pre>
+ * A  blocks to the left of the controller              = the controller's column
+ * B  blocks above the controller                       = the controller's row, as row 0 is the top
+ * C  blocks between the player and the controller      = the controller's stage, as stage 0 is the front
+ * </pre>
+ *
+ * All three are derived from the {@code ~} marker so the position is written down exactly once. Getting them wrong
+ * moves the whole shape relative to the controller, which is why they are not passed in by hand.
  */
 public final class StructureBlueprint {
 
@@ -15,28 +41,17 @@ public final class StructureBlueprint {
     public static final char CONTROLLER_SYMBOL = '~';
 
     /**
-     * Accepted as a stand-in for "air" so a shape can be written with padding that is actually visible in a text
-     * editor. It is converted to a space while parsing, because StructureLib rejects characters it has no element
-     * registered for - which is what a stray {@code .} used to do.
-     */
-    public static final char EMPTY_ALIAS = '.';
-
-    /**
-     * One stage of the machine: rows along the depth axis, each row read left to right. The first row is the front
-     * (the side the controller faces). Stage 0 is the bottom layer.
+     * The depth slices, front first. Each slice holds one string per level of the machine, written from the top down.
      */
     public final List<List<String>> stages;
 
-    /**
-     * Where the controller sits inside the shape, in the coordinates StructureLib wants: A is the column, B counts
-     * stages down from the top and C counts rows back from the player.
-     * <p>
-     * These are <strong>derived from the {@code ~} marker</strong>, never taken from the file. Having one description
-     * of the controller - the marker - means a stale or out of range offset key cannot make the machine unbuildable;
-     * the keys are still read so a mismatch can be reported.
-     */
+    /** Column of the controller marker: the number of blocks to its left. */
     private final int offsetA;
+
+    /** Row of the controller marker: the number of levels above it, zero when it is in the top level. */
     private final int offsetB;
+
+    /** Slice of the controller marker: the number of blocks between the player and the controller. */
     private final int offsetC;
 
     public StructureBlueprint(List<List<String>> stages, int offsetA, int offsetB, int offsetC) {
@@ -44,7 +59,6 @@ public final class StructureBlueprint {
         for (List<String> stage : stages) copy.add(Collections.unmodifiableList(new ArrayList<>(stage)));
         this.stages = Collections.unmodifiableList(copy);
 
-        // The marker is the single source of truth; the arguments are only a fallback for a shape without one.
         int[] marker = findControllerIn(this.stages);
         if (marker != null) {
             this.offsetA = marker[0];
@@ -57,7 +71,10 @@ public final class StructureBlueprint {
         }
     }
 
-    /** Column, down-from-top stage and back-from-player row of the {@code ~} marker, or null when absent. */
+    /**
+     * The {@code (column, row, stage)} the {@code ~} marker sits at - that is, {@code (A, B, C)} - or {@code null} when
+     * the shape has no marker at all.
+     */
     private static int[] findControllerIn(List<List<String>> stages) {
         for (int stage = 0; stage < stages.size(); stage++) {
             List<String> rows = stages.get(stage);
@@ -65,7 +82,7 @@ public final class StructureBlueprint {
                 String text = rows.get(row);
                 for (int column = 0; column < text.length(); column++) {
                     if (text.charAt(column) == CONTROLLER_SYMBOL) {
-                        return new int[] { column, stages.size() - 1 - stage, row };
+                        return new int[] { column, row, stage };
                     }
                 }
             }
@@ -73,116 +90,72 @@ public final class StructureBlueprint {
         return null;
     }
 
-    /** Number of stages, i.e. the height of the machine. */
-    public int height() {
+    /** Number of depth slices, i.e. how deep the machine is. */
+    public int depth() {
         return stages.size();
     }
 
-    /** Number of rows per stage, i.e. the depth of the machine. */
-    public int depth() {
-        return stages.isEmpty() ? 0
-            : stages.get(0)
-                .size();
+    /** Number of levels per slice, i.e. how tall the machine is. */
+    public int height() {
+        int tallest = 0;
+        for (List<String> stage : stages) tallest = Math.max(tallest, stage.size());
+        return tallest;
     }
 
-    /** Number of symbols per row, i.e. the width of the machine. */
+    /** Number of symbols per row, i.e. how wide the machine is. */
     public int width() {
-        if (stages.isEmpty() || stages.get(0)
-            .isEmpty()) return 0;
-        return stages.get(0)
-            .get(0)
-            .length();
-    }
-
-    /**
-     * The shape in the world orientation the file uses: {@code [stage][row][column]}, where stage 0 is the
-     * <strong>bottom</strong> layer and row 0 is the <strong>front</strong> row.
-     * <p>
-     * {@link #toShapeArray()} has to flip both of these, because StructureLib measures the world the other way round.
-     */
-    public String[][] toWorldShape() {
-        String[][] shape = new String[stages.size()][];
-        for (int stage = 0; stage < stages.size(); stage++) {
-            shape[stage] = stages.get(stage)
-                .toArray(new String[0]);
+        int widest = 0;
+        for (List<String> stage : stages) {
+            for (String row : stage) widest = Math.max(widest, row.length());
         }
-        return shape;
+        return widest;
     }
 
     /**
-     * Converts to the array StructureLib wants.
-     * <p>
-     * Two things differ from the file's own numbering and both matter:
-     * <ul>
-     * <li>the stage list has to be reversed, because the first array index counts <em>down</em> from the top;</li>
-     * <li>rows must <em>not</em> be reversed. The file lists rows front to back and the array wants them back to
-     * front, and those two cancel out: array row 0 is the back row, which is the file's last row, so the file's row
-     * order already lands correctly.</li>
-     * </ul>
-     * Getting the row direction wrong mirrors the machine front to back, which puts the controller on the far side
-     * instead of the face the player stands at.
+     * Pads every slice out to the full width and level count. A shape is written by hand and the rows on the far side
+     * are naturally empty, so they are written shorter; StructureLib needs a rectangular block of text. A padded
+     * position is a space, which is a position the structure check does not look at.
+     */
+    public StructureBlueprint padded() {
+        int width = width();
+        int height = height();
+        List<List<String>> padded = new ArrayList<>(stages.size());
+        for (List<String> stage : stages) {
+            List<String> rows = new ArrayList<>(height);
+            for (int row = 0; row < height; row++) {
+                StringBuilder builder = new StringBuilder(row < stage.size() ? stage.get(row) : "");
+                while (builder.length() < width) builder.append(' ');
+                rows.add(builder.toString());
+            }
+            padded.add(rows);
+        }
+        return new StructureBlueprint(padded, offsetA, offsetB, offsetC);
+    }
+
+    /**
+     * The shape as StructureLib wants it: {@code shape[depth][level][column]}, front slice first and top level first.
+     * The blueprint already uses that order, so this only pads the rows out to a rectangle.
      */
     public String[][] toShapeArray() {
-        int height = stages.size();
-        String[][] shape = new String[height][];
-        for (int stage = 0; stage < height; stage++) {
-            shape[stage] = stages.get(height - 1 - stage)
-                .toArray(new String[0]);
-        }
-        return shape;
+        return padded().stages.stream()
+            .map(stage -> stage.toArray(new String[0]))
+            .toArray(String[][]::new);
     }
 
     /**
-     * The {@code (A, B, C)} position the controller's {@code ~} occupies inside the array handed to StructureLib.
-     */
-    public int[] controllerArrayPosition() {
-        int[] found = findControllerIn(stages);
-        return found;
-    }
-
-    /**
-     * Validates the shape. Returns a list of problems, empty when the blueprint is usable.
+     * Checks the shape for mistakes that would make the machine impossible to build. Returns a list of problems, empty
+     * when the shape is usable. This is a development aid: it is only reported, never fatal, because a structural
+     * problem must not be able to stop the game from starting.
      */
     public List<String> validate() {
         List<String> problems = new ArrayList<>();
-        if (stages.isEmpty()) {
-            problems.add("the structure has no stages");
-            return problems;
-        }
-        int depth = depth();
-        int width = width();
-        if (depth == 0) problems.add("the structure has no rows");
-        if (width == 0) problems.add("the structure has no columns");
-        for (int stage = 0; stage < stages.size(); stage++) {
-            List<String> rows = stages.get(stage);
-            if (rows.size() != depth) {
-                problems.add("stage " + (stage + 1) + " has " + rows.size() + " rows but the first stage has " + depth);
-            }
-            for (int row = 0; row < rows.size(); row++) {
-                if (rows.get(row)
-                    .length() != width) {
-                    problems.add(
-                        "stage " + (stage + 1)
-                            + " row "
-                            + (row + 1)
-                            + " is "
-                            + rows.get(row)
-                                .length()
-                            + " columns wide but should be "
-                            + width);
-                }
-            }
-        }
-        // The offsets were derived from the marker in the constructor, so they are always inside the shape by
-        // construction. Only the marker itself can be missing or duplicated, which is what gets checked here.
+        if (stages.isEmpty()) return Collections.singletonList("the structure has no stages");
         problems.addAll(checkControllerMarker());
         return problems;
     }
 
     /**
-     * Reports a missing or duplicated {@code ~} marker. A disagreement between the marker and the offset keys in the
-     * file is <em>not</em> an error any more - the marker wins and the parser warns - because two descriptions of the
-     * same thing used to be able to make the machine unbuildable.
+     * Reports a missing or duplicated {@code ~} marker. Without one there is nothing for the offsets to point at.
      */
     private List<String> checkControllerMarker() {
         List<String> problems = new ArrayList<>();
@@ -203,51 +176,39 @@ public final class StructureBlueprint {
     }
 
     /**
-     * The offsets as derived from the marker, formatted for the log, so a stale key in the file can be spotted.
-     */
-    public String offsetSummary() {
-        return offsetA + "/" + offsetB + "/" + offsetC;
-    }
-
-    public int offsetA() {
-        return offsetA;
-    }
-
-    public int offsetB() {
-        return offsetB;
-    }
-
-    public int offsetC() {
-        return offsetC;
-    }
-
-    /**
-     * Prints the blueprint the same way it is written in the file, with stage and row headings. Used by the
-     * {@code /simplification structure} command so the shape can be checked without opening the file.
+     * Prints the shape with slice and level headings, so it can be checked from a log or from a debugger without
+     * opening the source.
      */
     public String describe() {
         StringBuilder text = new StringBuilder();
-        text.append("controller offset: column ")
-            .append(offsetA)
-            .append(", stage ")
-            .append(offsetB)
-            .append(", row ")
-            .append(offsetC)
-            .append('\n');
         text.append("size: ")
             .append(width())
             .append(" wide x ")
             .append(height())
             .append(" tall x ")
             .append(depth())
-            .append(" deep (rows are listed front to back)\n");
+            .append(" deep (slice 1 is the front, level 1 the top)\n");
+        text.append("controller at A/B/C ")
+            .append(offsetSummary())
+            .append(" (column ")
+            .append(offsetA)
+            .append(", ")
+            .append(offsetB)
+            .append(" levels above it, ")
+            .append(offsetC)
+            .append(" slices behind the front)\n");
         for (int stage = 0; stage < stages.size(); stage++) {
-            text.append("stage ")
+            text.append("slice ")
                 .append(stage + 1)
-                .append(":\n");
-            for (String row : stages.get(stage)) {
-                text.append("  ")
-                    .append(row.replace(' ', '.'))
+                .append(stage == 0 ? " (front):\n" : ":\n");
+            List<String> rows = stages.get(stage);
+            for (int row = 0; row < rows.size(); row++) {
+                text.append("  level ")
+                    .append(row + 1)
+                    .append(": ")
+                    .append(
+                        rows.get(row)
+                            .replace(' ', '.'))
                     .append('\n');
             }
         }
@@ -255,76 +216,53 @@ public final class StructureBlueprint {
     }
 
     /**
-     * A single block with the controller in it. Used only when the real structure cannot be built, so that the machine
-     * still registers and the game starts instead of dying on a class initialiser.
+     * Builds a shape from one {@code "row | row | row"} string per depth slice, slice 0 being the front and each row
+     * holding one level with the top first. This is only sugar for writing a shape in code in the same readable form a
+     * text file would use.
      */
-    public static StructureBlueprint placeholder() {
-        List<List<String>> stages = new ArrayList<>(1);
-        List<String> rows = new ArrayList<>(1);
-        rows.add(String.valueOf(CONTROLLER_SYMBOL));
-        stages.add(rows);
-        return new StructureBlueprint(stages, 0, 0, 0);
+    static StructureBlueprint ofStages(int offsetA, int offsetB, int offsetC, String... stages) {
+        List<List<String>> parsed = new ArrayList<>(stages.length);
+        for (String stage : stages) {
+            List<String> rows = new ArrayList<>();
+            for (String row : stage.split("\\|")) {
+                String trimmed = row.trim();
+                if (!trimmed.isEmpty()) rows.add(trimmed);
+            }
+            parsed.add(rows);
+        }
+        return new StructureBlueprint(parsed, offsetA, offsetB, offsetC);
     }
 
     /**
-     * Parses the {@code structure} section of the file: {@code offsetA}, {@code offsetB}, {@code offsetC} and
-     * {@code stage1}, {@code stage2}, ... Each stage holds one string per row, separated by {@code |}.
+     * A one block shape holding nothing but the controller marker. Used as the last resort when the real shape cannot
+     * be turned into a StructureLib definition: registering the machine with a degenerate structure is far better than
+     * throwing out of a class initialiser, which would stop the game from starting.
      */
-    public static StructureBlueprint parse(List<String> errors, String source, int offsetA, int offsetB, int offsetC,
-        List<String> stageValues) {
-        List<List<String>> stages = new ArrayList<>();
-        for (int i = 0; i < stageValues.size(); i++) {
-            String value = stageValues.get(i);
-            List<String> rows = new ArrayList<>();
-            for (String row : value.split("\\|")) {
-                // The empty-alias is turned into a real space first, then trailing space is dropped. A row therefore
-                // ends after its last block, so a shape may be written without any padding.
-                String trimmed = row.replace(EMPTY_ALIAS, ' ')
-                    .trim();
-                if (!trimmed.isEmpty()) rows.add(trimmed);
-            }
-            if (rows.isEmpty()) {
-                errors.add(source + ": stage" + (i + 1) + " is empty; write one string per row separated by `|`");
-                continue;
-            }
-            stages.add(rows);
-        }
-        if (stages.isEmpty()) {
-            errors.add(source + ": no stages defined; add stage1, stage2, ... under [structure]");
-        }
-
-        // Trimmed rows end up with different lengths whenever a row's right hand side is empty. Pad them all to the
-        // widest row instead of rejecting the shape: the missing cells can only mean "empty" and padding keeps
-        // StructureLib happy, which requires a rectangular shape.
-        padToWidestRow(stages);
-
-        StructureBlueprint blueprint = new StructureBlueprint(stages, offsetA, offsetB, offsetC);
-        for (String problem : blueprint.validate()) {
-            errors.add(source + ": " + problem);
-        }
-        return blueprint;
+    static StructureBlueprint placeholder() {
+        return new StructureBlueprint(
+            Collections.singletonList(Collections.singletonList(String.valueOf(CONTROLLER_SYMBOL))),
+            0,
+            0,
+            0);
     }
 
-    private static void padToWidestRow(List<List<String>> stages) {
-        int widest = 0;
-        for (List<String> rows : stages) {
-            for (String row : rows) widest = Math.max(widest, row.length());
-        }
-        if (widest == 0) return;
-        for (List<String> rows : stages) {
-            for (int i = 0; i < rows.size(); i++) {
-                String row = rows.get(i);
-                if (row.length() < widest) {
-                    rows.set(i, padRight(row, widest));
-                }
-            }
-        }
+    /** Blocks to the left of the controller. */
+    public int offsetA() {
+        return offsetA;
     }
 
-    private static String padRight(String text, int width) {
-        StringBuilder padded = new StringBuilder(width);
-        padded.append(text);
-        while (padded.length() < width) padded.append(' ');
-        return padded.toString();
+    /** Levels above the controller. */
+    public int offsetB() {
+        return offsetB;
+    }
+
+    /** Blocks between the player and the controller. */
+    public int offsetC() {
+        return offsetC;
+    }
+
+    /** The offsets as one string, for logging. */
+    public String offsetSummary() {
+        return offsetA + "/" + offsetB + "/" + offsetC;
     }
 }
