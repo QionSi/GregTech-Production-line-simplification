@@ -1,0 +1,10 @@
+# Language file for the Simplification mod.
+# Key format notes:
+#   - Machine names use "gt.blockmachines.<internal name>.name"
+#   - Recipe pool / NEI page titles use the recipe map's unlocalized name directly
+
+# Machines
+gt.blockmachines.multimachine.petrochemicalcomplex.name=Petrochemical Complex
+
+# Recipe pools
+simplification.recipe.petrochemical_complex=Petrochemical Complex

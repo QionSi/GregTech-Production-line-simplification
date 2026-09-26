@@ -1,0 +1,10 @@
+# Simplification 模组的中文语言文件。
+# 键名格式说明：
+#   - 机器名称使用 "gt.blockmachines.<机器内部名>.name"
+#   - 配方池 / NEI 页面标题直接使用配方池的 unlocalizedName
+
+# 机器
+gt.blockmachines.multimachine.petrochemicalcomplex.name=石油化工综合体
+
+# 配方池
+simplification.recipe.petrochemical_complex=石油化工综合体
