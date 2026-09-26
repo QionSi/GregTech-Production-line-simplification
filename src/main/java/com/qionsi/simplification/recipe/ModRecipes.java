@@ -19,19 +19,23 @@ import gregtech.api.util.GTRecipeBuilder;
 /**
  * The recipes of the 石油化工综合体 / Petrochemical Complex.
  * <p>
- * Every recipe consumes 10000 mB of some kind of oil plus a set of reagents and a programming circuit, and produces
- * both fluids and a few solid by-products. The programming circuit, 1 through 6, is what picks the product.
+ * The programming circuit, 1 through 12, is what picks the product. Circuits 1 to 6 are the oil based polymer and fuel
+ * recipes from the first design: they consume 10000 mB of some kind of oil plus reagents. Circuits 7 to 12 are the
+ * second batch, from {@code more/1.docx}: high octane gasoline starts from oil as well, while the rubbers, the two
+ * engineering plastics and the epoxy are built from their monomers, so they take solid reagents and gases instead.
  * <p>
  * Energy per operation follows the design document: 19200 EU for circuit 1 (600 ticks at 32 EU/t), 72000 EU for
- * circuits 2, 3 and 4 (600 ticks at 120 EU/t), 153600 EU for circuit 5 (320 ticks at 480 EU/t) and 86400 EU for
- * circuit 6 (720 ticks at 120 EU/t).
+ * circuits 2, 3 and 4 (600 ticks at 120 EU/t), 153600 EU for circuits 5, 9 and 11 (320 ticks at 480 EU/t), 86400 EU for
+ * circuit 6 (720 ticks at 120 EU/t), 3686400 EU for circuit 7 (600 ticks at 6144 EU/t), 144000 EU for circuit 8 (1200
+ * ticks at 120 EU/t), 470400 EU for circuit 10 (240 ticks at 1960 EU/t) and 3276800 EU for circuit 12 (320 ticks at
+ * 10240 EU/t).
  * <p>
  * The recipes live in code on purpose: while debugging, editing one of these numbers and letting the IDE swap the
  * method body in takes effect without restarting the game.
  */
 public final class ModRecipes {
 
-    /** All six recipes are built around this much oil. */
+    /** The oil based recipes 1 to 7 are built around this much oil. */
     private static final int OIL_AMOUNT = 10000;
 
     /**
@@ -53,6 +57,12 @@ public final class ModRecipes {
         registerPolystyrene();
         registerCetaneBoostedDiesel();
         registerDiesel();
+        registerHighOctaneGasoline();
+        registerStyreneButadieneRubber();
+        registerSiliconeRubber();
+        registerPolyphenyleneSulfide();
+        registerEpoxyResin();
+        registerPolybenzimidazole();
         registerAssemblerRecipe();
     }
 
@@ -158,6 +168,102 @@ public final class ModRecipes {
             .itemOutputs(dust(Materials.Sulfur, 2), dust(Materials.Carbon, 3))
             .duration(36 * SECONDS)
             .eut(TierEU.RECIPE_MV)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 高辛烷值汽油 / High Octane Gasoline, GregTech's {@link Materials#GasolinePremium}. */
+    private static void registerHighOctaneGasoline() {
+        GTRecipeBuilder.builder()
+            .circuit(7)
+            .fluidInputs(
+                ANY_OIL,
+                Materials.Steam.getGas(10870),
+                Materials.Oxygen.getGas(2990),
+                Materials.Nitrogen.getGas(4180))
+            .fluidOutputs(
+                Materials.GasolinePremium.getFluid(11130),
+                Materials.Hydrogen.getGas(11620),
+                Materials.NaphthenicAcid.getFluid(250))
+            .itemOutputs(dust(Materials.Carbon, 80), dust(Materials.Sulfur, 3))
+            .outputChances(8800, 8000)
+            .duration(30 * SECONDS)
+            .eut(6144)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 丁苯橡胶 / Styrene-Butadiene Rubber (SBR). */
+    private static void registerStyreneButadieneRubber() {
+        GTRecipeBuilder.builder()
+            .circuit(8)
+            .itemInputs(dust(Materials.Carbon, 9), dust(Materials.Sulfur, 1))
+            .fluidInputs(Materials.Hydrogen.getGas(26000))
+            .fluidOutputs(Materials.StyreneButadieneRubber.getMolten(9000))
+            .duration(60 * SECONDS)
+            .eut(TierEU.RECIPE_MV)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 硅橡胶 / Silicone Rubber, GregTech's {@link Materials#RubberSilicone}. */
+    private static void registerSiliconeRubber() {
+        GTRecipeBuilder.builder()
+            .circuit(9)
+            .itemInputs(dust(Materials.Carbon, 2), dust(Materials.Silicon, 1), dust(Materials.Sulfur, 1))
+            .fluidInputs(Materials.Hydrogen.getGas(24000), Materials.Oxygen.getGas(10000))
+            .fluidOutputs(Materials.RubberSilicone.getMolten(9000))
+            .duration(16 * SECONDS)
+            .eut(TierEU.RECIPE_HV)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 聚苯硫醚 / Polyphenylene Sulfide (PPS). */
+    private static void registerPolyphenyleneSulfide() {
+        GTRecipeBuilder.builder()
+            .circuit(10)
+            .itemInputs(
+                dust(Materials.Carbon, 6),
+                dust(Materials.Sodium, 6),
+                dust(Materials.Sulfur, 4))
+            .fluidInputs(
+                Materials.Hydrogen.getGas(4000),
+                Materials.Oxygen.getGas(8000),
+                Materials.Chlorine.getGas(2000))
+            .fluidOutputs(Materials.PolyphenyleneSulfide.getMolten(1000))
+            .duration(12 * SECONDS)
+            .eut(1960)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 环氧树脂 / Epoxy Resin, GregTech's {@link Materials#Epoxid}. */
+    private static void registerEpoxyResin() {
+        GTRecipeBuilder.builder()
+            .circuit(11)
+            .itemInputs(
+                dust(Materials.Carbon, 25),
+                dust(Materials.Sodium, 2),
+                dust(Materials.Sulfur, 1))
+            .fluidInputs(
+                Materials.Hydrogen.getGas(30000),
+                Materials.Oxygen.getGas(31000),
+                Materials.Chlorine.getGas(32000))
+            .fluidOutputs(Materials.Epoxid.getMolten(9000))
+            .duration(16 * SECONDS)
+            .eut(TierEU.RECIPE_HV)
+            .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
+    }
+
+    /** 聚苯并咪唑 / Polybenzimidazole (PBI). */
+    private static void registerPolybenzimidazole() {
+        GTRecipeBuilder.builder()
+            .circuit(12)
+            .itemInputs(dust(Materials.Carbon, 20))
+            .fluidInputs(
+                Materials.Hydrogen.getGas(12000),
+                Materials.Oxygen.getGas(14000),
+                Materials.Nitrogen.getGas(4000),
+                Materials.Chlorine.getGas(4000))
+            .fluidOutputs(Materials.Polybenzimidazole.getMolten(1000))
+            .duration(16 * SECONDS)
+            .eut(10240)
             .addTo(ModRecipeMaps.petrochemicalComplexRecipes);
     }
 

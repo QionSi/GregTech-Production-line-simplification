@@ -18,9 +18,9 @@ public final class ModRecipeMaps {
     /**
      * 石油化工综合体配方池 / Petrochemical Complex recipe pool.
      * <p>
-     * The UI is sized for the widest recipe in the pool: one programming circuit as the item input, up to three dust
-     * by-products, up to nine fluid inputs and up to nine fluid outputs. These numbers only describe the NEI and GUI
-     * layout and do not restrict what a recipe may declare.
+     * The UI is sized for the widest recipe in the pool: the three solid reagents plus the programming circuit that
+     * circuits 9, 10 and 11 take, up to three dust by-products, up to nine fluid inputs and up to nine fluid outputs.
+     * These numbers only describe the NEI and GUI layout and do not restrict what a recipe may declare.
      * <p>
      * The page uses GregTech's own {@link LargeNEIFrontend}, which is made for exactly this: machines with more items
      * and fluids than fit in the default single row. It puts both bands into grids three slots wide, one band under the
@@ -30,7 +30,7 @@ public final class ModRecipeMaps {
      */
     public static final RecipeMap<RecipeMapBackend> petrochemicalComplexRecipes = RecipeMapBuilder
         .of("simplification.recipe.petrochemical_complex")
-        .maxIO(2, 3, 9, 9)
+        .maxIO(4, 3, 9, 9)
         .minInputs(0, 1)
         .neiTransferRect(52, 24, 18, 54)
         .neiTransferRect(106, 24, 18, 54)
