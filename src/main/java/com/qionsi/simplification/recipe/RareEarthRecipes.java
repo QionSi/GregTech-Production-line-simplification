@@ -15,13 +15,16 @@ import static gregtech.api.util.GTRecipeConstants.COIL_HEAT;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 
+import com.qionsi.simplification.MetaTileIDs;
 import com.qionsi.simplification.MyMod;
 
 import bartworks.system.material.Werkstoff;
 import bartworks.system.material.WerkstoffLoader;
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.OrePrefixes;
+import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.util.GTOreDictUnificator;
 import gregtech.api.util.GTRecipeBuilder;
 import gregtech.api.util.GTUtility;
@@ -98,6 +101,7 @@ public final class RareEarthRecipes {
         registered = true;
         registerDustMode();
         registerOreMode();
+        registerAssemblerRecipe();
         MyMod.LOG.info(
             "Registered {} dust mode and {} ore mode Rare Earth recipes",
             ModRecipeMaps.rareEarthDustRecipes.getBackend()
@@ -616,6 +620,28 @@ public final class RareEarthRecipes {
     }
 
     // spotless:on
+
+    /**
+     * The controller's own assembler recipe: the four machines the line is built out of, four EV circuits and 16000 mB
+     * of polystyrene, at 480 EU/t for 30 seconds.
+     */
+    private static void registerAssemblerRecipe() {
+        var controller = GregTechAPI.METATILEENTITIES[MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER];
+        if (controller == null) return;
+        GTRecipeBuilder.builder()
+            .itemInputs(
+                ItemList.Machine_Multi_LargeChemicalReactor.get(1),
+                ItemList.IndustrialCentrifuge.get(1),
+                ItemList.Machine_Multi_BlastFurnace.get(1),
+                ItemList.Distillation_Tower.get(1),
+                // The oredict entry for any EV circuit.
+                GTOreDictUnificator.get(OrePrefixes.circuit, Materials.EV, 4))
+            .fluidInputs(Materials.Polystyrene.getMolten(16000))
+            .itemOutputs(controller.getStackForm(1))
+            .duration(30 * SECONDS)
+            .eut(480)
+            .addTo(RecipeMaps.assemblerRecipes);
+    }
 
     /**
      * {@code amount} of a GregTech dust. The ordinary GregTech helper would cut every amount above 64 down to one

@@ -37,11 +37,14 @@ public final class ModContent {
             "MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER",
             MTEPetrochemicalComplex::prepareStructure)) return false;
 
+        // The Rare Earth structure is deliberately not built here. Its glass and coil blocks come from other mods that
+        // register them during their own init, so building the definition now - before those exist - would bind a
+        // chainAllGlasses that knows no glasses at all. It is built on the first structure check instead.
         registerMachine(
             MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER,
             "the Rare Earth Processing Complex",
             "MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER",
-            MTERareEarthComplex::prepareStructure);
+            () -> {});
 
         try {
             ModRecipes.init();

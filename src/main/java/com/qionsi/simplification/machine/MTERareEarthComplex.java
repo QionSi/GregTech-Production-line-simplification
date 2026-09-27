@@ -25,13 +25,13 @@ import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
 import gregtech.api.enums.VoltageIndex;
-import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
+import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -40,6 +40,7 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTRecipeConstants;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
+import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
 /**
  * 稀土综合处理 / Rare Earth Processing Complex.
@@ -201,11 +202,18 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         return true;
     }
 
+    /**
+     * The machine's GUI, with the 矿粉模式 / 矿石模式 icons the mode switch button draws.
+     * <p>
+     * The icons have to be handed to the GUI itself: that list is what the button checks to decide whether the machine
+     * has modes at all, so filling in the legacy {@code setMachineModeIcons()} alone leaves the button out of the
+     * window. This is the same wiring the mega distillation tower uses.
+     */
     @Override
-    public void setMachineModeIcons() {
-        // 矿粉模式 / 矿石模式.
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR);
+    protected @Nonnull MTEMultiBlockBaseGui<?> getGui() {
+        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
+            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
+            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR);
     }
 
     @Override

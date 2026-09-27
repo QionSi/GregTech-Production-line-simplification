@@ -144,14 +144,14 @@ public final class RareEarthStructure {
         builder.addElement('F', ofBlock(Blocks.iron_block, 0));
         builder.addElement('G', ofBlock(GregTechAPI.sBlockCasings4, 1));
 
-        // The muffler sits on the casing the blueprint draws it in, which is either the heat proof or the clean
-        // stainless steel casing depending on the slice.
+        // A muffler position and nothing else: the blueprint draws ten of them and the machine wants at least one, but
+        // a plain casing is not accepted there.
         builder.addElement(
             'H',
             buildHatchAdder(MTERareEarthComplex.class).atLeast(Muffler)
                 .casingIndex(heatProofCasingTextureIndex())
                 .hint(3)
-                .buildAndChain(ofBlock(GregTechAPI.sBlockCasings1, 11), ofBlock(GregTechAPI.sBlockCasings4, 1)));
+                .build());
 
         // GT++ only creates its casings during its own pre-init, which runs after this machine is registered, so the
         // block is looked up lazily, at the first structure check rather than here.
