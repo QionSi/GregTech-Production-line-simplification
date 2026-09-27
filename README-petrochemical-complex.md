@@ -8,7 +8,7 @@
 | --- | --- |
 | 机器控制器 | `com.qionsi.simplification.machine.MTEPetrochemicalComplex` |
 | 机器 ID | `com.qionsi.simplification.MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER = 32700` |
-| 机器结构（写死在代码里） | `PetrochemicalComplexStructure.shapeText()`（形状文本）+ `StructureBlueprint`（坐标换算） |
+| 机器结构（GTNL 写法的蓝图文件） | `src/main/resources/assets/simplification/multiblock/petrochemical_complex.mb` + `MTEPetrochemicalComplex` 里的 `STRUCTURE_FILE_PATH` / `HORIZONTAL·VERTICAL·DEPTH_OFF_SET` / `getStructureDefinition()` |
 | 配方池（配方类型） | `com.qionsi.simplification.recipe.ModRecipeMaps.petrochemicalComplexRecipes` |
 | 六个加工配方 + 控制器装配配方 | `com.qionsi.simplification.recipe.ModRecipes` |
 | NEI 页面布局 | 直接用 GT 自带的 `LargeNEIFrontend`（在 `ModRecipeMaps` 里指定） |
@@ -24,11 +24,53 @@
 - 贴图：与**聚爆压缩机**相同（`OVERLAY_FRONT_IMPLOSION_COMPRESSOR` 系列 + Solid Steel Machine Casing 底材）
 - 结构：**7（宽）× 5（高）× 3（深）**，控制器在正面墙的最底层，左边 3 列脱氧钢、右边 4 列镀铜砖块，镀铜部分只有下面 3 层
 
-### 结构写法
+### 结构写法（照搬 GT-NOT-Leisure 的蓝图写法）
 
-结构**写死在代码里**（`PetrochemicalComplexStructure.shapeText()`），一个字符串 = 一个**纵深切片**，
-第一个切片是**正面**（控制器所在的那面墙，也就是玩家面对的一面），切片内一行 = 一个**高度层**，
-第一行是**最上层**：
+结构形状**不写在 Java 里**，而是放在蓝图文件 `src/main/resources/assets/simplification/multiblock/petrochemical_complex.mb`。
+这是 GTNL 的 `.mb` 写法，区别只有一个：GTNL 还要用手工脚本把 `.mb` 编译成 `.mbs` 二进制再随包发布，
+本模组**直接解析 `.mb` 文本**，少一套编译步骤（格式本身与 GTNL 完全一致，已用 GTNL 自己的 `.mb` 与其 `.mbs` 逐格对拍验证）。
+
+蓝图格式：
+
+```
+第 n 行           = 第 n 个竖直层，第 0 行是**最上层**
+一行内第 k 格      = 第 k 个深度位置，第 0 格是**最前面**（控制器所在的那面墙）
+一格里第 i 个字符  = 水平方向第 i 列（玩家视角 左 → 右）
+```
+
+本机蓝图全文（5 层 × 每层 3 格 × 每格 7 字符）：
+
+```
+OOO    ,OMO    ,OOO    
+OOO    ,O O    ,OOO    
+OOOBBBB,O OBBBB,OOOBBBB
+OOOBBBB,O O   B,OOOBBBB
+S~SBBBB,SSSBBBB,SSSBBBB
+```
+
+`MTEPetrochemicalComplex` 里读一次、转置、交给 StructureLib：
+
+```java
+private static final String STRUCTURE_FILE_PATH = MyMod.MODID + ":multiblock/petrochemical_complex";
+private static final String[][] shape = StructureBlueprintFile.read(STRUCTURE_FILE_PATH); // [层][格] → transpose → [切片][层]
+private static final int HORIZONTAL_OFF_SET = 1;  // A：控制器左边有几列
+private static final int VERTICAL_OFF_SET   = 4;  // B：控制器上面有几层
+private static final int DEPTH_OFF_SET      = 0;  // C：控制器前面有几格
+```
+
+把蓝图按"纵深切片"展开来看就是（和改版前逐字符一致，`·` 表示空格）：
+
+```
+列:            1234567                列:            1234567                列:            1234567
+切片1（正面）  第1层(顶) OOO····       切片2（中间）  第1层(顶) OMO····       切片3（背面）  第1层(顶) OOO····
+              第2层     OOO····                     第2层     O·O····                     第2层     OOO····
+              第3层     OOOBBBB                     第3层     O·OBBBB                     第3层     OOOBBBB
+              第4层     OOOBBBB                     第4层     O·O···B                     第4层     OOOBBBB
+              第5层(底) S~SBBBB                     第5层(底) SSSBBBB                     第5层(底) SSSBBBB
+```
+
+- `~` = 控制器：正面墙、最底层、左起第 2 列（A/B/C = 1/4/0，与上面三个常量一致；不一致会在启动日志里 WARN）
+- `M` = 消声仓：最上层 3×3 钢板的中心（形状里只有这 1 个位置，`checkHatchExact(..., MUFFLER_SLOTS = 1)` 要求正好 1 个）
 
 ```
 列:            1234567                列:            1234567                列:            1234567
@@ -41,7 +83,7 @@
 
 - `~` = 控制器：正面墙、最底层、左起第 2 列（A/B/C = 1/4/0）
 - `M` = 消声仓：最上层 3×3 钢板的中心
-- `·`（空格）= 结构校验**不检查**的位置
+- `·`（空格）= 结构校验**不检查**的位置（蓝图里行尾补宽的空格也是这个意思）
 
 符号含义与允许的舱室：
 
@@ -134,28 +176,33 @@ gradlew.bat --offline build
 
 产物：`build/libs/simplification-<版本>+2.9.0-beta-2.jar`
 
-## 调试时的热更新（HotSwap）
+## 调试、编辑蓝图与热更新
 
-数据文件重载那套框架已经去掉，改成**调试器热替换（HotSwap）**：
+蓝图是**运行时读取的文本资源**，改形状不再需要动 Java：
 
-1. 以调试模式启动客户端（会挂在 5005 端口等调试器连上来）：
+1. 改 `src/main/resources/assets/simplification/multiblock/petrochemical_complex.mb`；
+2. 开发环境跑一次 `gradlew.bat --offline processResources`（把资源拷进 `build/resources/main`）；
+3. **重启游戏**——蓝图在机器类初始化时读一次并缓存（`static final`，照搬 GTNL 的读法），所以改完要重启才生效。
 
-   ```bat
-   gradlew.bat runClient --debug-jvm
-   ```
+改动是否写对，看启动日志里的三行（蓝图解析 + `~` 位置自检 + 外壳/消声仓统计）：
 
-2. IDEA：`Run → Attach to Process…` 选中客户端进程（或者建一个 `Remote JVM Debug` 配置，端口 5005）连接。
-3. 改完代码后按 `Ctrl+Shift+F9`（或调试器里的 *Reload changed classes*）把新字节码换进正在跑的进程里。
+```
+Structure blueprint simplification:multiblock/petrochemical_complex: 7 wide x 5 tall x 3 deep, controller '~' at X=1 Y=4 Z=0
+Structure blueprint ...petrochemical_complex: controller position matches the machine offsets A/B/C=1/4/0
+Petrochemical Complex: the blueprint draws 33 Bronze Plated Bricks, 41 steel casing positions and 1 muffler positions; the shell has to keep 8 and 10 of the casings
+```
 
-能生效的范围：
+- `~` 的位置必须与 `HORIZONTAL_OFF_SET / VERTICAL_OFF_SET / DEPTH_OFF_SET` 一致，不一致会 WARN 并打印实际值；
+- 蓝图读不出来（文件缺失、某行格数与第一行不一致）会 ERROR 并回退成"只有一个控制器"的最小结构，
+  **不会**因为结构写错把游戏带崩。
 
-| 改动 | HotSwap | 说明 |
-| --- | --- | --- |
-| `shapeText()` 里的结构字符串 | ✅ 立刻生效 | `getStructureDefinition()` 每次结构校验都会把形状文本和上次的比一遍（只比字符串，不重新解析），不一样就重建结构定义 |
-| 各结构方块允许的舱室（`PetrochemicalComplexStructure.build()` 的方法体） | ✅ 立刻生效 | 同上，重建时会重新绑定元素 |
-| 配方数字（`ModRecipes` 里某个方法的方法体） | ⚠️ 需重跑注册 | 配方只在 preInit 注册一次，改完要么重启，要么手动重进一次游戏 |
-| 机器名称、tooltip、语言文件、贴图 | ❌ 需重启 | tooltip 在注册时生成一次，语言/资源在启动时加载 |
+用调试器热替换（HotSwap）能生效的范围（`gradlew.bat runClient --debug-jvm` 起客户端，挂在 5005 端口，
+IDEA 里 `Run → Attach to Process…` 或建 `Remote JVM Debug` 连上，改完按 `Ctrl+Shift+F9`）：
+
+| 改动 | 生效方式 |
+| --- | --- |
+| 蓝图 `.mb` 文件 | `processResources` + **重启**（见上，蓝图只读一次） |
+| 结构相关的方法体（各结构方块允许的舱室、`checkMachine`、tooltip） | ✅ HotSwap 立刻生效 |
+| 配方数字（`ModRecipes` 里某个方法的方法体） | ⚠️ 需重启 | 配方只在 preInit 注册一次 |
+| 机器名称、tooltip 文案、语言文件、贴图 | ❌ 需重启 | 注册/加载时只做一次 |
 | 新增/删除字段、方法、类，或改方法签名 | ❌ 需重启 | JVM 的 HotSwap 只能替换方法体 |
-
-> 结构定义不再放在类初始化块里，而是在第一次结构校验时构建（日志里会打印 `Petrochemical Complex structure: …`），
-> 这样即使形状写错（例如用了没绑定的符号），也只是回退成单方块结构并在日志里报错，不会把整个游戏带崩。

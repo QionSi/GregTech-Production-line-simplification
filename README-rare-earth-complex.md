@@ -6,7 +6,7 @@
 | --- | --- |
 | 控制器 | `com.qionsi.simplification.machine.MTERareEarthComplex` |
 | 机器 ID | `MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER = 32701` |
-| 结构（写死在代码里） | `RareEarthStructure.shapeText()`（形状文本）+ `StructureBlueprint`（坐标换算） |
+| 结构（GTNL 写法的蓝图文件） | `src/main/resources/assets/simplification/multiblock/rare_earth_complex.mb` + `MTERareEarthComplex` 里的 `STRUCTURE_FILE_PATH` / 三个 `*_OFF_SET` / `getStructureDefinition()` |
 | 两种模式的配方池 | `ModRecipeMaps.rareEarthDustRecipes`（矿粉模式）、`ModRecipeMaps.rareEarthOreRecipes`（矿石模式） |
 | 配方 | `com.qionsi.simplification.recipe.RareEarthRecipes` |
 | 本地化 | `assets/simplification/lang/{en_US,zh_CN}.lang` |
@@ -17,9 +17,32 @@
 
 ## 结构
 
-11 宽 × 12 高 × 12 深。写法同石油化工综合体：一个字符串 = 一层**纵深切片**（第一个是正面），
-切片内每个字段 = 一个**高度层**（第一个是最上层），字段内字符从左到右是玩家视角的左→右。
-控制器在正面墙、从最上层往下数第 11 层、正中第 6 列。空格 = 结构校验不检查的位置。
+11 宽 × 12 高 × 12 深，蓝图文件 `src/main/resources/assets/simplification/multiblock/rare_earth_complex.mb`
+（写法与石油化工综合体相同，即 GTNL 的 `.mb` 格式、运行时直接解析文本）：
+
+```
+第 n 行           = 第 n 个竖直层，第 0 行是**最上层**
+一行内第 k 格      = 第 k 个深度位置，第 0 格是**最前面**（控制器所在的那面墙）
+一格里第 i 个字符  = 水平方向第 i 列（玩家视角 左 → 右）
+```
+
+`MTERareEarthComplex` 里的读取与偏移常量：
+
+```java
+private static final String STRUCTURE_FILE_PATH = MyMod.MODID + ":multiblock/rare_earth_complex";
+private static final String[][] shape = StructureBlueprintFile.read(STRUCTURE_FILE_PATH); // [层][格] → transpose → [切片][层]
+private static final int HORIZONTAL_OFF_SET = 5;   // A：控制器左边有几列
+private static final int VERTICAL_OFF_SET   = 10;  // B：控制器上面有几层
+private static final int DEPTH_OFF_SET      = 0;   // C：控制器前面有几格
+```
+
+控制器在正面墙、从最上层往下数第 11 层、正中第 6 列（蓝图里 `~` 在 `X=5, Y=10, Z=0`，与三个常量一致，不一致会在启动日志里 WARN）。
+空格 = 结构校验**不检查**的位置；`-` = 该位置**必须是空气**（机器内部要留空的地方都写成了 `-`）。
+
+> 改结构不用动 Java：改完 `.mb`、跑一次 `gradlew.bat --offline processResources`，然后**重启游戏**即可生效
+> （蓝图在机器类初始化时读一次并缓存）。启动日志会打印蓝图尺寸、`~` 位置自检与外壳/消声仓统计；
+> `~` 与三个 `*_OFF_SET` 对不上会 WARN，蓝图读不出来（缺文件、每行格数不一致）会 ERROR 并回退成最小结构。
+> 调试与热更新的完整说明见 `README-petrochemical-complex.md` 的「调试、编辑蓝图与热更新」一节。
 
 | 符号 | 方块 | 说明 |
 | --- | --- | --- |
@@ -27,12 +50,12 @@
 | `B` | 任意 GTNH 加热线圈 | 决定机器的线圈等级（`HeatingCoilLevel`） |
 | `C` | 任意 GTNH 结构玻璃 | 决定机器的玻璃等级（`GlassTier`） |
 | `D` | 黑钢框架 | |
-| `E` | 坚固钨钢机械方块（`sBlockCasings4:0`） | 名称对应关系待你确认 |
+| `E` | 坚固钨钢机械方块（`sBlockCasings4:0`） | |
 | `F` | 铁块 | |
 | `G` | 洁净不锈钢机械方块（`sBlockCasings4:1`） | |
-| `H` | 消声仓位置 | 蓝图里共 10 个位置，至少要有 1 个消声仓 |
+| `H` | 消声仓位置 | 蓝图里共 **12** 个位置，**必须全部是消声仓**（`checkHatchExact(..., MUFFLER_SLOTS = 12)`） |
 | `I` | 离心机机械方块（GT++ `miscutils.blockcasings:0`） | |
-| `J` | 耐热机械方块（`sBlockCasings1:11`） | 名称对应关系待你确认 |
+| `J` | 耐热机械方块（`sBlockCasings1:11`） | |
 | `K` | 聚四氟乙烯管道方块（`sBlockCasings8:1`） | |
 | `~` | 控制器 | |
 
@@ -47,9 +70,9 @@
 | 维护仓（所有种类） | 任意 `A` |
 | 输入仓 / 输出仓 | 任意 `A` |
 | 输入总线 / 输出总线（含样板输入总成与 ME 仓室） | 任意 `A` |
-| 消声仓 | 蓝图里的 10 个 `H` 位置，至少 1 个 |
+| 消声仓 | 蓝图里的 12 个 `H` 位置，**必须全部是消声仓**（正好 12 个，多一个少一个都不成型） |
 
-外壳最低要求：**化学惰性机械方块 ≥ 11**（`RareEarthStructure.MIN_INERT_CASINGS`），其余方块按结构本身校验；
+外壳最低要求：**化学惰性机械方块 ≥ 11**（`MTERareEarthComplex.MIN_INERT_CASINGS`，由 `checkCasingMin` 统计），其余方块按结构本身校验；
 放了舱室的位置不算外壳，所以 11 是"留给舱室的空间"之外的底线。
 
 ## 两种模式
@@ -118,9 +141,15 @@ GUI 里有**机器模式切换**按钮（矿粉模式 / 矿石模式）和**输�
 - GT++（miscutils）：`MaterialsElements` 里的元素（铑/钌/锆/铼/铪/硒/铊/铯/碘/溴/锗/碲/钷/钐/钆/铽/钬/镝/铒/镱/钇/镧/铈/钕…）
   以及 `RUNITE`（虚恩）、`BLACK_METAL`（黑物质）、`RareEarthI/II/III`（稀土 I/II/III）
 
-## 待你确认的几处
+## 已确认与仍待确认
 
-1. `E` = 坚固钨钢机械方块（`sBlockCasings4:0`）、`J` = 耐热机械方块（`sBlockCasings1:11`）——中文名是我按英文名反推的。
-2. 结构 stage7~12 少一个字段：按"末尾不校验"处理（见上）。
-3. 两种模式的"时间/能耗减免"基准：矿粉模式的能源仓/玻璃减免、矿石模式的能源仓减免，都按**相对配方等级**计算。
-4. GUI 的模式图标暂时用 GT 自带的 `machine_mode_default` / `machine_mode_separator`，可以换。
+已确认（你已答复过）：
+
+1. `E` = 坚固钨钢机械方块（`sBlockCasings4:0`）、`J` = 耐热机械方块（`sBlockCasings1:11`），名称无误。
+2. 消声仓：蓝图里 12 个 `H` 位置**必须全部是消声仓**（正好 12 个，多一个少一个都不成型）。
+3. 结构 stage7~12 比 stage1~6 少一个字段：按"末尾不校验"处理，已固化进蓝图 `.mb`；要改成"整体上移一层"只改蓝图行序即可。
+
+仍待你确认：
+
+1. 两种模式的"时间/能耗减免"基准：矿粉模式的能源仓/玻璃减免、矿石模式的能源仓减免，都按**相对配方等级**计算。
+2. GUI 的模式图标暂时用 GT 自带的 `machine_mode_default` / `machine_mode_separator`，可以换。
