@@ -11,3 +11,8 @@ gt.blockmachines.multimachine.rareearthcomplex.name=Rare Earth Processing Comple
 simplification.recipe.petrochemical_complex=Petrochemical Complex
 simplification.recipe.rare_earth_dust=Rare Earth: Dust Mode
 simplification.recipe.rare_earth_ore=Rare Earth: Ore Mode
+
+
+# Rare Earth Processing Complex machine modes
+simplification.rare_earth.mode.dust=Dust Mode
+simplification.rare_earth.mode.ore=Ore Mode

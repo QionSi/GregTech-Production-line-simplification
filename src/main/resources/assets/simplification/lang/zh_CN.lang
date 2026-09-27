@@ -11,3 +11,8 @@ gt.blockmachines.multimachine.rareearthcomplex.name=稀土综合处理
 simplification.recipe.petrochemical_complex=石油化工综合体
 simplification.recipe.rare_earth_dust=稀土综合处理：矿粉模式
 simplification.recipe.rare_earth_ore=稀土综合处理：矿石模式
+
+
+# 稀土综合处理的机器模式
+simplification.rare_earth.mode.dust=矿粉模式
+simplification.rare_earth.mode.ore=矿石模式

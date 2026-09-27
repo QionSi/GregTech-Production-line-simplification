@@ -216,6 +216,17 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR);
     }
 
+    /**
+     * Language key of the mode the machine is in, which is what the GUI shows next to the mode switch button.
+     * <p>
+     * Without it the machine reports "unknown mode", because the base class has no idea what the mode indices of this
+     * machine mean. This is the same wiring the mega distillation tower uses.
+     */
+    @Override
+    public String getMachineModeKey() {
+        return isOreMode() ? "simplification.rare_earth.mode.ore" : "simplification.rare_earth.mode.dust";
+    }
+
     @Override
     public RecipeMap<?> getRecipeMap() {
         return isOreMode() ? ModRecipeMaps.rareEarthOreRecipes : ModRecipeMaps.rareEarthDustRecipes;

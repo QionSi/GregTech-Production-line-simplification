@@ -622,13 +622,14 @@ public final class RareEarthRecipes {
     // spotless:on
 
     /**
-     * The controller's own assembler recipe: the four machines the line is built out of, four EV circuits and 16000 mB
-     * of polystyrene, at 480 EU/t for 30 seconds.
+     * The controller's own assembler recipe: circuit 15, the four machines the line is built out of, four EV circuits
+     * and 16000 mB of polystyrene, at 480 EU/t for 30 seconds.
      */
     private static void registerAssemblerRecipe() {
         var controller = GregTechAPI.METATILEENTITIES[MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER];
         if (controller == null) return;
         GTRecipeBuilder.builder()
+            .circuit(15)
             .itemInputs(
                 ItemList.Machine_Multi_LargeChemicalReactor.get(1),
                 ItemList.IndustrialCentrifuge.get(1),
