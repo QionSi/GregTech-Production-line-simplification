@@ -15,5 +15,10 @@ public final class MetaTileIDs {
      */
     public static final int PETROCHEMICAL_COMPLEX_CONTROLLER = 32700;
 
+    /**
+     * 稀土综合处理 / Rare Earth Processing Complex controller.
+     */
+    public static final int RARE_EARTH_COMPLEX_CONTROLLER = 32701;
+
     private MetaTileIDs() {}
 }

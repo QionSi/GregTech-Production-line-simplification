@@ -5,6 +5,9 @@
 
 # Machines
 gt.blockmachines.multimachine.petrochemicalcomplex.name=Petrochemical Complex
+gt.blockmachines.multimachine.rareearthcomplex.name=Rare Earth Processing Complex
 
 # Recipe pools
 simplification.recipe.petrochemical_complex=Petrochemical Complex
+simplification.recipe.rare_earth_dust=Rare Earth: Dust Mode
+simplification.recipe.rare_earth_ore=Rare Earth: Ore Mode

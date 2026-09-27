@@ -5,6 +5,9 @@
 
 # 机器
 gt.blockmachines.multimachine.petrochemicalcomplex.name=石油化工综合体
+gt.blockmachines.multimachine.rareearthcomplex.name=稀土综合处理
 
 # 配方池
 simplification.recipe.petrochemical_complex=石油化工综合体
+simplification.recipe.rare_earth_dust=稀土综合处理：矿粉模式
+simplification.recipe.rare_earth_ore=稀土综合处理：矿石模式

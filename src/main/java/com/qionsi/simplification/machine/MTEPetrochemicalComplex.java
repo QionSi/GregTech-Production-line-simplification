@@ -14,6 +14,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
+import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.qionsi.simplification.MyMod;
 
 import gregtech.api.casing.Casings;
@@ -138,7 +139,17 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
                 "Could not build the Petrochemical Complex structure definition; the machine falls back to a single "
                     + "block so the game keeps running.",
                 t);
-            return PetrochemicalComplexStructure.build(StructureBlueprint.placeholder());
+            // The fallback goes through the same code and could fail the same way. It must not: an exception escaping
+            // here would leave the class without a definition and take the game down.
+            try {
+                return PetrochemicalComplexStructure.build(StructureBlueprint.placeholder());
+            } catch (Throwable fatal) {
+                MyMod.LOG
+                    .error("Even the fallback structure failed to build; the machine will not form at all.", fatal);
+                return StructureDefinition.<MTEPetrochemicalComplex>builder()
+                    .addShape("main", new String[][] { { "~" } })
+                    .build();
+            }
         }
     }
 

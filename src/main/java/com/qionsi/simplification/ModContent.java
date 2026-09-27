@@ -1,8 +1,10 @@
 package com.qionsi.simplification;
 
 import com.qionsi.simplification.machine.MTEPetrochemicalComplex;
+import com.qionsi.simplification.machine.MTERareEarthComplex;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
+import com.qionsi.simplification.recipe.RareEarthRecipes;
 
 import gregtech.api.GregTechAPI;
 
@@ -21,7 +23,7 @@ public final class ModContent {
     private ModContent() {}
 
     /**
-     * Registers the machines, the recipe pool and the recipes.
+     * Registers the machines, the recipe pools and the recipes.
      *
      * @return {@code false} when the machine could not be registered and the mod is unusable
      */
@@ -29,30 +31,17 @@ public final class ModContent {
         if (registered) return true;
         registered = true;
 
-        try {
-            createMachine();
-        } catch (Throwable t) {
-            // A class initialiser failure here is almost always an id clash with another addon. Report it and carry on
-            // so the rest of the pack still loads.
-            MyMod.LOG.error(
-                "Could not register the Petrochemical Complex controller at MetaTileEntity id {}. Another mod may "
-                    + "already use that id; change MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER.",
-                MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER,
-                t);
-            return false;
-        }
-        if (GregTechAPI.METATILEENTITIES[MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER] == null) {
-            MyMod.LOG.error(
-                "The Petrochemical Complex controller was not registered at MetaTileEntity id {}.",
-                MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER);
-            return false;
-        }
-        MyMod.LOG.info("Registered the Petrochemical Complex controller");
+        if (!registerMachine(
+            MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER,
+            "the Petrochemical Complex",
+            "MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER",
+            MTEPetrochemicalComplex::prepareStructure)) return false;
 
-        // Build the structure definition now so a problem with the shape shows up here, in a short log, rather than
-        // the first time a player tries to build the machine. Failures are caught inside and fall back to a working
-        // one block structure, so this cannot stop the game from starting.
-        MTEPetrochemicalComplex.prepareStructure();
+        registerMachine(
+            MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER,
+            "the Rare Earth Processing Complex",
+            "MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER",
+            MTERareEarthComplex::prepareStructure);
 
         try {
             ModRecipes.init();
@@ -64,13 +53,49 @@ public final class ModContent {
         } catch (Throwable t) {
             MyMod.LOG.error("Could not register the Petrochemical Complex recipes; the machine will have none.", t);
         }
+
+        // RareEarthRecipes registers itself, and reports its own counts: Bartworks only creates its items during its
+        // own init phase, so that class defers the work until they exist and logs the result then.
+        try {
+            RareEarthRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not register the Rare Earth recipes; the machine will have none.", t);
+        }
         return true;
     }
 
-    private static void createMachine() {
-        new MTEPetrochemicalComplex(
-            MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER,
-            "multimachine.petrochemicalcomplex",
-            "Petrochemical Complex");
+    /**
+     * Creates one controller and reports what happened.
+     * <p>
+     * The structure definition is then built straight away, so a problem with a shape shows up here, in a short log,
+     * rather than the first time a player tries to build the machine. Failures are caught inside and fall back to a
+     * working one block structure, so this cannot stop the game from starting.
+     */
+    private static boolean registerMachine(int id, String name, String idConstant, Runnable prepareStructure) {
+        try {
+            if (id == MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER) {
+                new MTEPetrochemicalComplex(id, "multimachine.petrochemicalcomplex", "Petrochemical Complex");
+            } else {
+                new MTERareEarthComplex(id, "multimachine.rareearthcomplex", "Rare Earth Processing Complex");
+            }
+        } catch (Throwable t) {
+            // A class initialiser failure here is almost always an id clash with another addon. Report it and carry on
+            // so the rest of the pack still loads.
+            MyMod.LOG.error(
+                "Could not register the controller of {} at MetaTileEntity id {}. Another mod may already use that "
+                    + "id; change {}.",
+                name,
+                id,
+                idConstant,
+                t);
+            return false;
+        }
+        if (GregTechAPI.METATILEENTITIES[id] == null) {
+            MyMod.LOG.error("The controller of {} was not registered at MetaTileEntity id {}.", name, id);
+            return false;
+        }
+        MyMod.LOG.info("Registered the controller of {}", name);
+        prepareStructure.run();
+        return true;
     }
 }

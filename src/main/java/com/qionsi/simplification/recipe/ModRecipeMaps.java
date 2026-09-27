@@ -37,5 +37,37 @@ public final class ModRecipeMaps {
         .frontend(LargeNEIFrontend::new)
         .build();
 
+    /**
+     * 稀土综合处理：矿粉模式 / Rare Earth Processing Complex, dust mode.
+     * <p>
+     * The dust recipes work on refined dusts and take a programming circuit plus up to seven reagents, up to eighteen
+     * item outputs (the rare earth recipe splits into eighteen different dusts) and a few fluids. One of them, iridium
+     * dioxide, has no fluid at all, so the map requires no fluid inputs.
+     */
+    public static final RecipeMap<RecipeMapBackend> rareEarthDustRecipes = RecipeMapBuilder
+        .of("simplification.recipe.rare_earth_dust")
+        .maxIO(8, 18, 4, 3)
+        .minInputs(0, 0)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
+    /**
+     * 稀土综合处理：矿石模式 / Rare Earth Processing Complex, ore mode.
+     * <p>
+     * The ore recipes take a crushed ore plus water and give four dusts. Every one of them also carries the minimum
+     * heating coil it needs in {@link gregtech.api.util.GTRecipeConstants#COIL_HEAT}: that is what the machine compares
+     * its coils against, and what its time bonus is measured from.
+     */
+    public static final RecipeMap<RecipeMapBackend> rareEarthOreRecipes = RecipeMapBuilder
+        .of("simplification.recipe.rare_earth_ore")
+        .maxIO(2, 6, 2, 2)
+        .minInputs(0, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
     private ModRecipeMaps() {}
 }

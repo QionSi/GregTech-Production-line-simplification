@@ -219,14 +219,16 @@ public final class StructureBlueprint {
      * Builds a shape from one {@code "row | row | row"} string per depth slice, slice 0 being the front and each row
      * holding one level with the top first. This is only sugar for writing a shape in code in the same readable form a
      * text file would use.
+     * <p>
+     * Every field between the separators is kept, including an empty one: an empty field is a level the shape does not
+     * ask for, which is how the corners of a machine that is only cased where it needs to be are written.
      */
     static StructureBlueprint ofStages(int offsetA, int offsetB, int offsetC, String... stages) {
         List<List<String>> parsed = new ArrayList<>(stages.length);
         for (String stage : stages) {
             List<String> rows = new ArrayList<>();
-            for (String row : stage.split("\\|")) {
-                String trimmed = row.trim();
-                if (!trimmed.isEmpty()) rows.add(trimmed);
+            for (String row : stage.split("\\|", -1)) {
+                rows.add(row.trim());
             }
             parsed.add(rows);
         }
