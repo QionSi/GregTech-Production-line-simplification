@@ -17,6 +17,9 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.init.Blocks;
 
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -63,7 +66,7 @@ public final class RareEarthStructure {
      * before the definition is built: StructureLib throws {@code Missing Structure Element bindings} for an unknown
      * character, and an exception from a structure check is not something the game handles well.
      */
-    private static final String KNOWN_SYMBOLS = "ABCDEFGHIJK~ ";
+    private static final String KNOWN_SYMBOLS = "ABCDEFGHIJK~ -";
 
     /**
      * Minimum number of Chemically Inert Machine Casings the shell has to keep. Everything else marked {@code A} may be
@@ -110,8 +113,33 @@ public final class RareEarthStructure {
 
     /** The shape the machine is built from: {@link #shapeText()} parsed. */
     public static StructureBlueprint defaultBlueprint() {
-        return StructureBlueprint.ofStages(0, 0, 0, shapeText())
-            .padded();
+        return markedBlueprint();
+    }
+
+    /**
+     * The shape with every space <em>inside</em> a row turned into the {@code -} that StructureLib reads as "must be
+     * air", so that the hollow parts of the machine have to stay hollow.
+     * <p>
+     * Spaces that only pad a short row out to the full width are not touched: those are positions the shape says
+     * nothing about, not positions that have to be empty.
+     */
+    static StructureBlueprint markedBlueprint() {
+        String[] slices = shapeText();
+        List<List<String>> marked = new ArrayList<>(slices.length);
+        for (String slice : slices) {
+            List<String> levels = new ArrayList<>();
+            for (String level : slice.split("\\|", -1)) {
+                String text = level.trim();
+                StringBuilder fixed = new StringBuilder(text.length());
+                for (int i = 0; i < text.length(); i++) {
+                    char symbol = text.charAt(i);
+                    fixed.append(symbol == ' ' ? '-' : symbol);
+                }
+                levels.add(fixed.toString());
+            }
+            marked.add(levels);
+        }
+        return new StructureBlueprint(marked, 0, 0, 0).padded();
     }
 
     /** Builds the StructureLib definition for a blueprint. */
