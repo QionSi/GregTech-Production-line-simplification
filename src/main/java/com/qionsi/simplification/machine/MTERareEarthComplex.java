@@ -1,9 +1,25 @@
 package com.qionsi.simplification.machine;
 
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.lazy;
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlock;
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
+import static gregtech.api.enums.HatchElement.Energy;
+import static gregtech.api.enums.HatchElement.ExoticEnergy;
+import static gregtech.api.enums.HatchElement.InputBus;
+import static gregtech.api.enums.HatchElement.InputHatch;
+import static gregtech.api.enums.HatchElement.Maintenance;
+import static gregtech.api.enums.HatchElement.Muffler;
+import static gregtech.api.enums.HatchElement.OutputBus;
+import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICAL_REACTOR;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICAL_REACTOR_ACTIVE;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICAL_REACTOR_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICAL_REACTOR_GLOW;
+import static gregtech.api.util.GTStructureUtility.activeCoils;
+import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
+import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
+import static gregtech.api.util.GTStructureUtility.ofCoil;
+import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -11,6 +27,7 @@ import java.util.List;
 
 import javax.annotation.Nonnull;
 
+import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -19,11 +36,15 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructa
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
+import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.qionsi.simplification.MyMod;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 
+import gregtech.api.GregTechAPI;
+import gregtech.api.casing.Casings;
 import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.HeatingCoilLevel;
+import gregtech.api.enums.Materials;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
 import gregtech.api.enums.VoltageIndex;
@@ -42,8 +63,11 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTRecipeConstants;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
+import gregtech.common.blocks.BlockCasings1;
+import gregtech.common.blocks.BlockCasings8;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
+import gtPlusPlus.core.block.ModBlocks;
 
 /**
  * 稀土综合处理 / Rare Earth Processing Complex.
@@ -60,12 +84,37 @@ import gregtech.common.misc.GTStructureChannels;
  * {@value #ORE_ENERGY_PER_HATCH_TIER_PERCENT}% of the energy per energy hatch tier.</li>
  * </ul>
  * The mode is picked with the button in the machine's GUI, next to the input separation button that GT draws there.
- * The shape lives in {@link RareEarthStructure#shapeText()}.
+ * The shape lives in the blueprint {@code assets/simplification/multiblock/rare_earth_complex.mb}, which
+ * {@link StructureBlueprintFile} reads at runtime.
  */
 public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareEarthComplex>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+
+    /** The blueprint this machine is built from: {@code assets/simplification/multiblock/rare_earth_complex.mb}. */
+    private static final String STRUCTURE_FILE_PATH = MyMod.MODID + ":multiblock/rare_earth_complex";
+
+    /**
+     * The shape of the machine, read from the blueprint: one line per level, the top level first, and one comma
+     * separated cell per depth position, the one nearest the player first. See {@link StructureBlueprintFile} for the
+     * format. It is transposed into StructureLib's own order when the definition is built.
+     */
+    private static final String[][] shape = StructureBlueprintFile.read(STRUCTURE_FILE_PATH);
+
+    /** Where the {@code ~} of the blueprint sits inside the shape, which is where the controller goes. */
+    private static final int HORIZONTAL_OFF_SET = 5;
+    private static final int VERTICAL_OFF_SET = 10;
+    private static final int DEPTH_OFF_SET = 0;
+
+    /**
+     * Chemically Inert Machine Casings the shell has to keep. Everything else marked {@code A} may be a hatch instead,
+     * and a hatch does not count as a casing.
+     */
+    public static final int MIN_INERT_CASINGS = 11;
+
+    /** Muffler positions the blueprint draws, every one of which has to be filled. */
+    public static final int MUFFLER_SLOTS = 12;
 
     /** 矿粉模式, the mode the machine starts in. */
     public static final int MODE_DUST = 0;
@@ -89,10 +138,23 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
     /** Glass tier that unlocks lossless overclocking in ore mode. */
     private static final int ORE_LOSSLESS_GLASS_TIER = VoltageIndex.UHV;
 
-    /** The structure definition in use, and the shape text it was built from. */
+    static {
+        // The blueprint is checked as soon as this class is loaded, which is when the controller is registered, so a
+        // blueprint that disagrees with the offsets above is reported while the log is still short. The definition
+        // itself is still only built on the first structure check, see getDefinition().
+        try {
+            prepareStructure();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not check the Rare Earth Processing Complex structure blueprint.", t);
+        }
+    }
+
+    /**
+     * The one definition, built from the shape above the first time it is asked for, which is the first structure
+     * check rather than registration: the heating coils and the structure glass come from other mods that only register
+     * them during their own init, so a definition built any earlier would bind a glass chain that knows no glasses.
+     */
     private static IStructureDefinition<MTERareEarthComplex> DEFINITION;
-    private static StructureBlueprint builtFrom;
-    private static String[] builtFromText;
 
     /** Chemically Inert Machine Casings the last structure check found. */
     private int inertCasings;
@@ -116,67 +178,108 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         return new MTERareEarthComplex(this.mName);
     }
 
-    private static StructureBlueprint refreshStructure() {
-        String[] currentText = RareEarthStructure.shapeText();
-        if (DEFINITION == null || builtFromText == null || !Arrays.equals(builtFromText, currentText)) {
-            StructureBlueprint current = RareEarthStructure.defaultBlueprint();
-            DEFINITION = buildDefinition(current);
-            builtFrom = current;
-            builtFromText = currentText;
-        }
-        return builtFrom;
+    /**
+     * Checks the blueprint against the machine's own offsets and writes what it asks for into the log. Safe to call at
+     * registration: it does not build the definition, which has to wait for the other mods' coils and glasses.
+     */
+    public static void prepareStructure() {
+        StructureBlueprintFile
+            .verifyControllerPosition(STRUCTURE_FILE_PATH, shape, HORIZONTAL_OFF_SET, VERTICAL_OFF_SET, DEPTH_OFF_SET);
+        reportCounts();
     }
 
-    private static IStructureDefinition<MTERareEarthComplex> buildDefinition(StructureBlueprint blueprint) {
+    /** Writes what the blueprint asks for into the log, and complains when that no longer matches the constants. */
+    private static void reportCounts() {
+        int mufflers = StructureBlueprintFile.count(shape, 'H');
+        if (mufflers != MUFFLER_SLOTS) {
+            MyMod.LOG.warn(
+                "The Rare Earth Processing Complex blueprint draws {} muffler positions, but the machine requires {}.",
+                mufflers,
+                MUFFLER_SLOTS);
+        }
+        MyMod.LOG.info(
+            "Rare Earth Processing Complex: the blueprint draws {} Chemically Inert Machine Casings and {} muffler "
+                + "positions; the shell has to keep {} of the casings",
+            StructureBlueprintFile.count(shape, 'A'),
+            mufflers,
+            MIN_INERT_CASINGS);
+    }
+
+    /** The structure definition, built from the blueprint the first time it is asked for. */
+    private static IStructureDefinition<MTERareEarthComplex> getDefinition() {
+        if (DEFINITION == null) DEFINITION = buildDefinition();
+        return DEFINITION;
+    }
+
+    /**
+     * The StructureLib form of the blueprint.
+     * <p>
+     * Every symbol is a block or a casing, and the positions that take hatches put the hatch adder in front of the
+     * casing, so such a position may hold either. The casing element is what counts the shell for
+     * {@link #checkMachine}.
+     */
+    private static IStructureDefinition<MTERareEarthComplex> buildDefinition() {
         try {
-            IStructureDefinition<MTERareEarthComplex> definition = RareEarthStructure.build(blueprint);
-            for (String problem : blueprint.validate()) {
-                MyMod.LOG.warn("[rare earth structure] {}", problem);
-            }
-            MyMod.LOG.info(
-                "Rare Earth Processing Complex structure: {} wide x {} tall x {} deep, controller at A/B/C {} (front "
-                    + "slice, level {} from the top, column {}), shell of {} chemically inert machine casings",
-                blueprint.width(),
-                blueprint.height(),
-                blueprint.depth(),
-                blueprint.offsetSummary(),
-                blueprint.offsetB() + 1,
-                blueprint.offsetA() + 1,
-                RareEarthStructure.countSymbol(blueprint, 'A'));
-            return definition;
+            return StructureDefinition.<MTERareEarthComplex>builder()
+                .addShape(STRUCTURE_PIECE_MAIN, StructureUtility.transpose(shape))
+                // The wall: every hatch this machine supports goes on the chemically inert casing.
+                .addElement(
+                    'A',
+                    buildHatchAdder(MTERareEarthComplex.class)
+                        .atLeast(Energy.or(ExoticEnergy), Maintenance, InputBus, InputHatch, OutputBus, OutputHatch)
+                        .casingIndex(inertCasingTextureIndex())
+                        .hint(1)
+                        .buildAndChain(onElementPass(x -> ++x.inertCasings, ofBlock(GregTechAPI.sBlockCasings8, 0))))
+                // The heating coils, which set the machine's coil level.
+                .addElement(
+                    'B',
+                    GTStructureChannels.HEATING_COIL
+                        .use(activeCoils(ofCoil(MTERareEarthComplex::setCoilLevel, MTERareEarthComplex::getCoilLevel))))
+                // The structure glass, which sets the machine's glass tier.
+                .addElement(
+                    'C',
+                    chainAllGlasses(-1, (te, tier) -> te.setGlassTier(tier), MTERareEarthComplex::getGlassTier))
+                .addElement('D', ofFrame(Materials.BlackSteel))
+                .addElement('E', ofBlock(GregTechAPI.sBlockCasings4, 0))
+                .addElement('F', ofBlock(Blocks.iron_block, 0))
+                .addElement('G', ofBlock(GregTechAPI.sBlockCasings4, 1))
+                // A muffler position and nothing else: a plain casing is not accepted there.
+                .addElement(
+                    'H',
+                    buildHatchAdder(MTERareEarthComplex.class).atLeast(Muffler)
+                        .casingIndex(heatProofCasingTextureIndex())
+                        .hint(3)
+                        .build())
+                // GT++ only creates its casings during its own pre-init, which runs after this machine is registered,
+                // so the block is looked up lazily, at the first structure check rather than here.
+                .addElement('I', lazy(t -> ofBlock(ModBlocks.blockCasingsMisc, 0)))
+                .addElement('J', ofBlock(GregTechAPI.sBlockCasings1, 11))
+                .addElement('K', ofBlock(GregTechAPI.sBlockCasings8, 1))
+                .build();
         } catch (Throwable t) {
             MyMod.LOG.error(
                 "Could not build the Rare Earth Processing Complex structure definition; the machine falls back to a "
                     + "single block so the game keeps running.",
                 t);
-            // The fallback goes through the same code and could fail the same way. It must not: an exception escaping
-            // here would leave the class without a definition and take the game down.
-            try {
-                return RareEarthStructure.build(StructureBlueprint.placeholder());
-            } catch (Throwable fatal) {
-                MyMod.LOG
-                    .error("Even the fallback structure failed to build; the machine will not form at all.", fatal);
-                return StructureDefinition.<MTERareEarthComplex>builder()
-                    .addShape("main", new String[][] { { "~" } })
-                    .build();
-            }
+            return StructureDefinition.<MTERareEarthComplex>builder()
+                .addShape(STRUCTURE_PIECE_MAIN, new String[][] { { "~" } })
+                .build();
         }
-    }
-
-    /** Builds the structure definition at startup so a broken shape shows up in a short log. */
-    public static void prepareStructure() {
-        refreshStructure();
     }
 
     @Override
     public IStructureDefinition<MTERareEarthComplex> getStructureDefinition() {
-        refreshStructure();
-        return DEFINITION;
+        return getDefinition();
     }
 
-    /** Structure element callback: one more Chemically Inert Machine Casing was found. */
-    public void bumpInertCasings() {
-        inertCasings++;
+    /** Texture index of the chemically inert machine casing, i.e. of {@code sBlockCasings8:0}. */
+    private static int inertCasingTextureIndex() {
+        return ((BlockCasings8) GregTechAPI.sBlockCasings8).getTextureIndex(0);
+    }
+
+    /** Texture index of the heat proof machine casing, i.e. of {@code sBlockCasings1:11}. */
+    private static int heatProofCasingTextureIndex() {
+        return ((BlockCasings1) GregTechAPI.sBlockCasings1).getTextureIndex(11);
     }
 
     public HeatingCoilLevel getCoilLevel() {
@@ -250,20 +353,13 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
     @Override
     public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> errors) {
         inertCasings = 0;
-        StructureBlueprint blueprint = refreshStructure();
-        if (!checkPiece(STRUCTURE_PIECE_MAIN, blueprint.offsetA(), blueprint.offsetB(), blueprint.offsetC(), errors))
-            return;
-        int requiredCasings = Math
-            .min(RareEarthStructure.MIN_INERT_CASINGS, RareEarthStructure.countSymbol(blueprint, 'A'));
-        checkCasingMin(errors, inertCasings, requiredCasings);
-        checkHasAnyEnergy(errors);
-        checkOneMaintenanceHatch(errors);
+        if (!checkPiece(STRUCTURE_PIECE_MAIN, HORIZONTAL_OFF_SET, VERTICAL_OFF_SET, DEPTH_OFF_SET, errors)) return;
+        checkCasingMin(errors, inertCasings, MIN_INERT_CASINGS);
         // Every muffler position the blueprint draws has to be filled with one: the shape marks them all, so all of
         // them are required, not just one or two.
-        int mufflerSlots = RareEarthStructure.countSymbol(blueprint, 'H');
-        if (mufflerSlots > 0) {
-            checkHatchExact(errors, HatchElement.Muffler, mufflerSlots);
-        }
+        checkHatchExact(errors, HatchElement.Muffler, MUFFLER_SLOTS);
+        checkHasAnyEnergy(errors);
+        checkOneMaintenanceHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
     }
@@ -289,26 +385,18 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
 
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
-        StructureBlueprint blueprint = refreshStructure();
-        buildPiece(
-            STRUCTURE_PIECE_MAIN,
-            stackSize,
-            hintsOnly,
-            blueprint.offsetA(),
-            blueprint.offsetB(),
-            blueprint.offsetC());
+        buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, HORIZONTAL_OFF_SET, VERTICAL_OFF_SET, DEPTH_OFF_SET);
     }
 
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;
-        StructureBlueprint blueprint = refreshStructure();
         return survivalBuildPiece(
             STRUCTURE_PIECE_MAIN,
             stackSize,
-            blueprint.offsetA(),
-            blueprint.offsetB(),
-            blueprint.offsetC(),
+            HORIZONTAL_OFF_SET,
+            VERTICAL_OFF_SET,
+            DEPTH_OFF_SET,
             elementBudget,
             env,
             false,
@@ -317,10 +405,14 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
 
     @Override
     public String[] getStructureDescription(ItemStack stackSize) {
-        StructureBlueprint blueprint = refreshStructure();
         return new String[] { "\u00a7e\u7a00\u571f\u7efc\u5408\u5904\u7406\u00a7r / Rare Earth Processing Complex",
-            "\u00a77The controller goes in the middle of the front wall. The shape is " + blueprint
-                .width() + " wide x " + blueprint.height() + " tall x " + blueprint.depth() + " deep.",
+            "\u00a77The controller goes in the middle of the front wall. The shape is "
+                + StructureBlueprintFile.width(shape)
+                + " wide x "
+                + StructureBlueprintFile.height(shape)
+                + " tall x "
+                + StructureBlueprintFile.depth(shape)
+                + " deep.",
             "\u00a77A = Chemically Inert Machine Casing: every hatch goes here.",
             "\u00a77B = any heating coil, C = any tiered structure glass.",
             "\u00a77H = the muffler slots drawn in the blueprint.",
@@ -343,7 +435,7 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
 
     @Override
     public ITexture getCasingTexture() {
-        return RareEarthStructure.inertCasingTexture();
+        return Casings.ChemicallyInertMachineCasing.getCasingTexture();
     }
 
     /**
@@ -518,7 +610,6 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
 
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
-        StructureBlueprint blueprint = refreshStructure();
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Rare Earth Processing Complex")
             .addInfo("Gathers most of the rare earth line into one machine, in an ore mode and a dust mode")
@@ -539,20 +630,22 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             .addInfo("UHV structure glass unlocks lossless overclocking")
             .addSupportMultiAmp()
             .addSeparator()
-            // Sizes come from the shape, so editing the structure keeps the tooltip correct.
-            .beginStructureBlock(blueprint.depth(), blueprint.width(), blueprint.height(), false)
-            .addController("Front wall, middle of the eleventh level from the top")
-            .addCasing(RareEarthStructure.MIN_INERT_CASINGS + "+", "Chemically Inert Machine Casing", false)
+            // beginStructureBlock takes width, height and depth in that order, all three read off the blueprint so an
+            // edit to the structure keeps the tooltip correct.
+            .beginStructureBlock(
+                StructureBlueprintFile.width(shape),
+                StructureBlueprintFile.height(shape),
+                StructureBlueprintFile.depth(shape),
+                false)
+            .addController("Front wall, middle of the " + (VERTICAL_OFF_SET + 1) + "th level from the top")
+            .addCasing(MIN_INERT_CASINGS + "+", "Chemically Inert Machine Casing", false)
             .addEnergyHatch("1+", "Any Chemically Inert Machine Casing", 1)
             .addMaintenanceHatch("1", "Any Chemically Inert Machine Casing", 1)
             .addInputHatch("1+", "Any Chemically Inert Machine Casing", 1)
             .addOutputHatch("1+", "Any Chemically Inert Machine Casing", 1)
             .addInputBus("1+", "Any Chemically Inert Machine Casing", 1)
             .addOutputBus("1+", "Any Chemically Inert Machine Casing", 1)
-            .addMufflerHatch(
-                String.valueOf(RareEarthStructure.countSymbol(blueprint, 'H')),
-                "Every position marked H",
-                3)
+            .addMufflerHatch(String.valueOf(MUFFLER_SLOTS), "Every position marked H", 3)
             .addOtherStructurePart("Any heating coil", "The B positions, sets the coil tier")
             .addOtherStructurePart("Any tiered structure glass", "The C positions, sets the glass tier")
             .addSubChannel(GTStructureChannels.HEATING_COIL)
