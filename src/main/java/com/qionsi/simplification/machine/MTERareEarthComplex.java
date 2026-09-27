@@ -21,6 +21,7 @@ import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.qionsi.simplification.MyMod;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 
+import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
@@ -41,6 +42,7 @@ import gregtech.api.util.GTRecipeConstants;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
+import gregtech.common.misc.GTStructureChannels;
 
 /**
  * 稀土综合处理 / Rare Earth Processing Complex.
@@ -243,10 +245,33 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         checkCasingMin(errors, inertCasings, requiredCasings);
         checkHasAnyEnergy(errors);
         checkOneMaintenanceHatch(errors);
-        // The blueprint draws ten muffler slots, so at least one muffler is what is required.
-        checkHasMufflerHatch(errors);
+        // Every muffler position the blueprint draws has to be filled with one: the shape marks them all, so all of
+        // them are required, not just one or two.
+        int mufflerSlots = RareEarthStructure.countSymbol(blueprint, 'H');
+        if (mufflerSlots > 0) {
+            checkHatchExact(errors, HatchElement.Muffler, mufflerSlots);
+        }
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    /**
+     * Runs the recipe logic, falling back to the other mode's pool when the current one has nothing.
+     * <p>
+     * The two pools are fed by different inputs, and the player should not have to guess which mode an input belongs
+     * to, nor should the ore mode be invisible in recipe searches. Both pools are therefore always tried, and the
+     * machine stays in whichever mode matched.
+     */
+    @Override
+    public CheckRecipeResult checkProcessing() {
+        CheckRecipeResult result = super.checkProcessing();
+        if (result.wasSuccessful()) return result;
+        int previous = machineMode;
+        machineMode = isOreMode() ? MODE_DUST : MODE_ORE;
+        CheckRecipeResult fallback = super.checkProcessing();
+        if (fallback.wasSuccessful()) return fallback;
+        machineMode = previous;
+        return result;
     }
 
     @Override
@@ -511,9 +536,14 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             .addOutputHatch("1+", "Any Chemically Inert Machine Casing", 1)
             .addInputBus("1+", "Any Chemically Inert Machine Casing", 1)
             .addOutputBus("1+", "Any Chemically Inert Machine Casing", 1)
-            .addMufflerHatch("1+", "The positions drawn in the blueprint", 3)
+            .addMufflerHatch(
+                String.valueOf(RareEarthStructure.countSymbol(blueprint, 'H')),
+                "Every position marked H",
+                3)
             .addOtherStructurePart("Any heating coil", "The B positions, sets the coil tier")
             .addOtherStructurePart("Any tiered structure glass", "The C positions, sets the glass tier")
+            .addSubChannel(GTStructureChannels.HEATING_COIL)
+            .addSubChannel(GTStructureChannels.BOROGLASS)
             .toolTipFinisher();
         return tt;
     }

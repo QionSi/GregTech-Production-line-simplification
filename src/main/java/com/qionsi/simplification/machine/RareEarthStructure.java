@@ -95,17 +95,17 @@ public final class RareEarthStructure {
             // slice 6
             "           |           |           |           |   EEEEE   |   DCCCD   |   DCCCD   |   DCCCD   |   EEEEE   |IIIIIIIIIII|IIIIIIIIIII|IIIIIIIIIII",
             // slice 7
-            "           |           |           |           |           |           |           |JJJJJJJJJJJ|BBBBBBBBBBB|BBBBBBBBBBB|JJJJJJJJJJJ",
+            "           |           |           |           |           |           |           |           |JJJJJJJJJJJ|BBBBBBBBBBB|BBBBBBBBBBB|JJJJJJJJJJJ",
             // slice 8
-            "           |           |           |           |           |           |           |JHJHJHJHJHJ|B B B B B B|B B B B B B|JJJJJJJJJJJ",
+            "           |           |           |           |           |           |           |           |JHJHJHJHJHJ|B B B B B B|B B B B B B|JJJJJJJJJJJ",
             // slice 9
-            "           |           |           |           |           |           |           |JJJJJJJJJJJ|BBBBBBBBBBB|BBBBBBBBBBB|JJJJJJJJJJJ",
+            "           |           |           |           |           |           |           |           |JJJJJJJJJJJ|BBBBBBBBBBB|BBBBBBBBBBB|JJJJJJJJJJJ",
             // slice 10
-            "           |           |           |           |           |           |GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG",
+            "           |           |           |           |           |           |           |GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG",
             // slice 11
-            "           |           |           |           |           |           |GHGHGHGHGHG|G G G G G G|G G G G G G|G G G G G G|GGGGGGGGGGG",
+            "           |           |           |           |           |           |           |GHGHGHGHGHG|G G G G G G|G G G G G G|G G G G G G|GGGGGGGGGGG",
             // slice 12
-            "           |           |           |           |           |           |GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG" };
+            "           |           |           |           |           |           |           |GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG|GGGGGGGGGGG" };
     }
 
     /** The shape the machine is built from: {@link #shapeText()} parsed. */
