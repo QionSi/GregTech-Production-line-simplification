@@ -6,6 +6,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICA
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_LARGE_CHEMICAL_REACTOR_GLOW;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -232,6 +233,18 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
     @Override
     public RecipeMap<?> getRecipeMap() {
         return isOreMode() ? ModRecipeMaps.rareEarthOreRecipes : ModRecipeMaps.rareEarthDustRecipes;
+    }
+
+    /**
+     * Both pools, so that NEI lists this machine as the catalyst of the ore mode page as well as the dust mode one.
+     * <p>
+     * NEI builds its catalyst list by asking every machine which recipe maps it can use. A machine that only answers
+     * with the map of its current mode is listed on that one page and nowhere else, which is what made the ore mode
+     * look unbound. GT5U documents this method for machines that have several pools.
+     */
+    @Override
+    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
+        return Arrays.asList(ModRecipeMaps.rareEarthDustRecipes, ModRecipeMaps.rareEarthOreRecipes);
     }
 
     @Override
