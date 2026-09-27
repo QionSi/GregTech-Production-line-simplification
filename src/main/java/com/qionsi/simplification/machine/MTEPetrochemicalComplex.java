@@ -364,4 +364,31 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
     public boolean supportsBatchMode() {
         return true;
     }
+
+    /**
+     * Input separation, the button in the machine's GUI that GregTech draws as the separated hatches. With it on, every
+     * input bus is searched as its own set of ingredients, so separate buses can feed separate recipes at the same
+     * time; with it off, all the input buses are pooled and one recipe may take its solids from any of them. Fluids are
+     * pooled either way.
+     * <p>
+     * Offering it is the point: most GregTech multiblocks either force it or forbid it, and this one leaves the choice
+     * to the player through the button.
+     */
+    @Override
+    public boolean supportsInputSeparation() {
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * GregTech defaults this to {@link #supportsInputSeparation()}, which would switch separation on for every machine
+     * that offers the button. This machine starts with it off instead: its recipes ask for a programming circuit plus
+     * up to three different dusts, which anyone will naturally keep in different buses, so pooling them is the useful
+     * default. Turning the button on is what runs a different recipe out of each bus.
+     */
+    @Override
+    public boolean getDefaultInputSeparationMode() {
+        return false;
+    }
 }
