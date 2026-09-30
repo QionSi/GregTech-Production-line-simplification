@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8.3-GTNH",
+  "refmap": "mixins.simplification.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.qionsi.simplification.mixins",
+  "mixins": [
+    "MixinEntityPlayer"
+  ],
+  "client": [],
+  "server": []
+}

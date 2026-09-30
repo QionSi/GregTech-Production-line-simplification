@@ -16,3 +16,19 @@ simplification.recipe.rare_earth_ore=Rare Earth: Ore Mode
 # Rare Earth Processing Complex machine modes
 simplification.rare_earth.mode.dust=Dust Mode
 simplification.rare_earth.mode.ore=Ore Mode
+
+# Bauble: Nascent White Branch (belt). The tooltip is kept in Chinese on purpose: the wording comes from the design
+# document and there is no reviewed English translation of it.
+item.simplification.nascentWhiteBranch.name=初生白枝 / Nascent White Branch
+simplification.tooltip.nascentWhiteBranch.desc.1=从世界的中心，取来的一段新枝。
+simplification.tooltip.nascentWhiteBranch.desc.2=曾有一株巨木，贯彻了世界的各处；这节枝条是它的一部分。虽然被折下，与树的联系也从来没有断开。因此，只要那棵象征着世界中心的白色巨木没有死去，它就永远不会枯败。
+simplification.tooltip.nascentWhiteBranch.desc.3=「树」是生的象征。在何处的故事中曾有一个人，在弥留之际将自己的意念托生在白树的枝条上。如此，生命与希望就不会失落，枝条会在有阳光雨露的地方生长、抽芽，最终开花结实。
+simplification.tooltip.nascentWhiteBranch.desc.4=「树」同时也是智慧的象征。在何处的传说中，树上倒悬的贤人获得了书写符文操使言灵的知性，沿着树根建造的王国最终窥见了魔天的秘密。
+simplification.tooltip.nascentWhiteBranch.desc.5=一切知识、记忆与体验在大树的根茎中奔流。就如溪流汇入大河、河流汇入海洋，又化为雨水落在大地上。就如生命一般。
+simplification.tooltip.nascentWhiteBranch.effect.1=世界树的枝丫：当佩戴者穿戴时，会从「树」中汲取知识，解锁所有研究点
+simplification.tooltip.nascentWhiteBranch.effect.2=最纯净的枝丫：当佩戴者穿戴时，佩戴者临时扭曲固定为50，其他扭曲不会增加且永远为0
+simplification.tooltip.nascentWhiteBranch.effect.3=梦中轮回的锚：赋予佩戴者不死的效果，无论受到何种伤害均不会死亡
+simplification.tooltip.nascentWhiteBranch.effect.4=神诞生的馈赠：赋予佩戴者护甲值固定为40，生命值固定为100，饱食度固定为40
+simplification.tooltip.nascentWhiteBranch.effect.5=白草净华之息：赋予佩戴者持续的增益Buff并持续消除佩戴者的所有DeBuff
+simplification.tooltip.nascentWhiteBranch.effect.6=花神之舞的回响：赋予佩戴者死亡不掉落的效果
+simplification.tooltip.nascentWhiteBranch.effect.7=比量现行之翼：赋予佩戴者创造飞行的效果

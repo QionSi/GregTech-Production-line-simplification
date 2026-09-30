@@ -1,5 +1,7 @@
 package com.qionsi.simplification;
 
+import com.qionsi.simplification.item.ModItems;
+
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -18,6 +20,9 @@ public class CommonProxy {
         // GregTech loads in this same phase; its preload flag is already set by the time any mod's pre-init runs, so
         // the machine id reserved in MetaTileIDs is registered safely here.
         ModContent.register();
+
+        // The bauble and its event handler are independent of GregTech, but they belong to the same pre-init.
+        ModItems.register();
     }
 
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
