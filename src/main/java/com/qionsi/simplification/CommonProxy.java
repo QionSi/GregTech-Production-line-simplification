@@ -29,7 +29,10 @@ public class CommonProxy {
     public void init(FMLInitializationEvent event) {}
 
     // postInit "Handle interaction with other mods, complete your setup based on this." (Remove if not needed)
-    public void postInit(FMLPostInitializationEvent event) {}
+    public void postInit(FMLPostInitializationEvent event) {
+        // The recipe waits until here so that GregTech has already filed its wire cutters in the ore dictionary.
+        ModItems.registerRecipes();
+    }
 
     // register server commands in this event handler (Remove if not needed)
     public void serverStarting(FMLServerStartingEvent event) {}

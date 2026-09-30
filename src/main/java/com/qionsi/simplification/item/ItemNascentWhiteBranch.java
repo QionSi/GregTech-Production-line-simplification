@@ -149,11 +149,6 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
     }
 
     @Override
-    public boolean hasEffect(ItemStack stack, int pass) {
-        return true;
-    }
-
-    @Override
     public void onEquipped(ItemStack stack, EntityLivingBase entity) {
         if (entity instanceof EntityPlayer && !entity.worldObj.isRemote) {
             applyEffects((EntityPlayer) entity, true);
