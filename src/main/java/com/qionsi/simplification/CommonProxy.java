@@ -32,6 +32,7 @@ public class CommonProxy {
     public void postInit(FMLPostInitializationEvent event) {
         // The recipe waits until here so that GregTech has already filed its wire cutters in the ore dictionary.
         ModItems.registerRecipes();
+        ModItems.logRegistration();
     }
 
     // register server commands in this event handler (Remove if not needed)

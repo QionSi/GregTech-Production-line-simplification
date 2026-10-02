@@ -18,6 +18,9 @@ import cpw.mods.fml.common.registry.GameRegistry;
  */
 public final class ModItems {
 
+    /** The registry name of the item inside this mod; with the mod id it is what identifies it everywhere. */
+    public static final String ITEM_NAME = "nascent_white_branch";
+
     /** The ore dictionary entry every sapling - vanilla or modded - is filed under. */
     public static final String SAPLING_ORE = "treeSapling";
 
@@ -42,7 +45,7 @@ public final class ModItems {
 
         try {
             nascentWhiteBranch = new ItemNascentWhiteBranch();
-            GameRegistry.registerItem(nascentWhiteBranch, "nascent_white_branch");
+            GameRegistry.registerItem(nascentWhiteBranch, ITEM_NAME);
             MinecraftForge.EVENT_BUS.register(new BaubleEventHandler());
             MyMod.LOG.info("Registered the Nascent White Branch bauble (belt slot)");
         } catch (Throwable t) {
@@ -72,6 +75,24 @@ public final class ModItems {
         } catch (Throwable t) {
             MyMod.LOG.error("Could not register the Nascent White Branch recipe", t);
         }
+    }
+
+    /**
+     * Logs how the item is registered and which numeric id it ended up with.
+     * <p>
+     * Nothing in this mod picks that number: {@code GameRegistry.registerItem} only takes a name, and FML hands out the
+     * first free id while the game starts. Printing it is the only way for a pack author to see which id was taken -
+     * and
+     * to see that this mod cannot have caused an id clash, because it never asked for a particular id. It is logged in
+     * the post-init, by which time FML has finished handing ids out.
+     */
+    public static void logRegistration() {
+        if (nascentWhiteBranch == null) return;
+        MyMod.LOG.info(
+            "The Nascent White Branch is registered by name as {}:{}; FML assigned it the numeric item id {}",
+            MyMod.MODID,
+            ITEM_NAME,
+            Item.getIdFromItem(nascentWhiteBranch));
     }
 
     private static int oreCount(String oreName) {
