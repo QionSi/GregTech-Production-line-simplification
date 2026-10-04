@@ -1,9 +1,6 @@
 package com.qionsi.simplification.recipe;
 
-import static gregtech.api.util.GTRecipeConstants.AssemblyLine;
-import static gregtech.api.util.GTRecipeConstants.RESEARCH_ITEM;
 import static gregtech.api.util.GTRecipeConstants.RESEARCH_STATION_DATA;
-import static gregtech.api.util.GTRecipeConstants.SCANNING;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,18 +19,56 @@ import gregtech.api.enums.MetaTileEntityIDs;
 import gregtech.api.enums.OrePrefixes;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.util.GTOreDictUnificator;
-import gregtech.api.util.GTRecipeBuilder;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
-import gregtech.api.util.recipe.Scanning;
 import gtPlusPlus.xmod.gregtech.api.enums.GregtechItemList;
+import tectech.recipe.TTRecipeAdder;
+import tectech.recipe.TecTechRecipeMaps;
+import tectech.thing.metaTileEntity.multi.MTEResearchStation;
 
 /**
  * The assembly line recipe of the 初步研究的超维度催化剂制造机 / Preliminary Study: Transcendent Catalyst Maker.
  * <p>
  * The recipe takes, in the order the design document lists them, 64 of each of the eight controllers the catalyst
  * production line is built out of, plus the four 激发的…超维度催化剂 fluids at 1024,000 / 512,000 / 256,000 / 128,000 mB.
- * It runs for 3600 seconds at 33,554,432 EU/t, and it carries the Research Station data: the research item is the
- * preliminary study item itself, so the station scans that item and writes the recipe onto a 闪存 / Data Stick.
+ * It runs for 3600 seconds at 33,554,432 EU/t.
+ *
+ * <h2>Which machine writes the 闪存 / data stick, and why that decides how this is registered</h2>
+ *
+ * The assembly line will not run from a plain recipe: it reads the recipe out of a data stick, and that stick has to be
+ * written by a Research Station. The Research Station has two machine modes, and they are not interchangeable - see
+ * {@code tectech.thing.metaTileEntity.multi.MTEResearchStation}:
+ *
+ * <ul>
+ * <li>{@code MODE_SCANNER} goes through {@code findSBScannerRecipe} and
+ * {@code ScannerHandlerLoader.doAssemblyLineResearch},
+ * which look a recipe up in {@code GTRecipe.RecipeAssemblyLine.sAssemblylineRecipes} by research item and take the
+ * scanning time and voltage from the {@link gregtech.api.util.GTRecipeConstants#SCANNING} metadata. That is the mode
+ * the old "scan the item, then scan it again at the scanner" flow uses, and the SCANNING metadata is what feeds
+ * it.</li>
+ * <li>{@code MODE_RESEARCH_STATION} goes through {@code findResearchStationRecipe}, which ignores SCANNING completely
+ * and instead walks {@link TecTechRecipeMaps#researchableALRecipeList} looking for a recipe whose research item is the
+ * stack in the station's object holder. It then writes the data stick itself.</li>
+ * </ul>
+ *
+ * This recipe therefore has to be in {@code researchableALRecipeList}, and the only supported way to get there is
+ * {@link TTRecipeAdder#addResearchableAssemblylineRecipe}. That single call also puts the recipe into
+ * {@code RecipeAssemblyLine.sAssemblylineRecipes} - which is what the assembly line itself reads back out of the data
+ * stick - and into the NEI pages of both the Research Station and the assembly line. Registering it through
+ * {@code GTRecipeConstants.AssemblyLine} instead, as this class used to, only ever fed the scanner mode (and put a
+ * second entry with the same output into the assembly line list, which
+ * {@code AssemblyLineUtils.assertSingleRecipe} refuses).
+ *
+ * <h2>The two numbers TecTech will not take as given</h2>
+ *
+ * The design document's research requirement is 770,208 computation per second for 1,200 seconds, i.e. 924,249,600
+ * computation in total. {@code TTRecipeAdder} clamps the per-second figure to {@code Short.MAX_VALUE} = 32,767, because
+ * it packs it into the high 16 bits of the RESEARCH_STATION_DATA metadata that the Research Station's NEI page
+ * displays.
+ * The clamp is only about that display: the station itself keeps the requirement in a {@code long}
+ * ({@code eRequiredData}), so the document's 770,208 is honoured on the machine and the clamped display value is
+ * reported in the log. The research time is not passed in at all - it is
+ * {@code totalComputationRequired / computationRequiredPerSec}, which the document's own numbers make 1,200 seconds.
  *
  * <h2>Why this is registered so late, and why it is a separate file</h2>
  *
@@ -51,10 +86,11 @@ import gtPlusPlus.xmod.gregtech.api.enums.GregtechItemList;
 public final class TranscendentCatalystAssemblyLine {
 
     /** 33,554,432 EU/t, the voltage the design document puts on the recipe. */
-    private static final long RECIPE_EUT = 33_554_432L;
+    private static final int RECIPE_EUT = 33_554_432;
 
     /** 3600 seconds, the duration the design document puts on the recipe. */
-    private static final int RECIPE_DURATION = 3600 * 20;
+    private static final int RECIPE_DURATION_SECONDS = 3600;
+    private static final int RECIPE_DURATION = RECIPE_DURATION_SECONDS * 20;
 
     /** The four catalyst fluids, in the order the design document lists them. */
     private static final int CRUDE_AMOUNT = 1_024_000;
@@ -63,14 +99,20 @@ public final class TranscendentCatalystAssemblyLine {
     private static final int ALIEN_AMOUNT = 128_000;
 
     /**
-     * The Research Station data. 1200 ticks is 924,249,600 / 770,208, the scan time the design document gives, and the
-     * voltage is the one the document pairs with it.
+     * The research requirement the design document gives: 770,208 computation per second for 924,249,600 in total, i.e.
+     * 1,200 seconds. The per-second figure is what TecTech clamps; the total is not.
      */
-    private static final int SCAN_TIME = 1200;
-    private static final long SCAN_VOLTAGE = 1_327_684_600L;
+    private static final int TOTAL_COMPUTATION = 924_249_600;
+    private static final int COMPUTATION_PER_SECOND = 770_208;
 
-    /** 770,208, the research station data value the design document specifies. */
-    private static final int RESEARCH_STATION_DATA_VALUE = 770_208;
+    /** 1,327,684,600 EU/t, the research voltage the design document gives. */
+    private static final int RESEARCH_VOLTAGE = 1_327_684_600;
+
+    /**
+     * The amperage the Research Station draws for the research. The design document does not give one, so the smallest
+     * one is used; TecTech clamps it to 1..32767 anyway.
+     */
+    private static final int RESEARCH_AMPERAGE = 1;
 
     private static boolean registered;
     private static boolean deferred;
@@ -120,7 +162,8 @@ public final class TranscendentCatalystAssemblyLine {
             return;
         }
 
-        // The research item, which the Research Station scans and which the recipe then produces.
+        // The research item: this is what the player puts into the Research Station's object holder, and what the
+        // station matches the recipe against in research-station mode. (It is the same stack the recipe then builds.)
         ItemStack researchItem = new ItemStack(ModItems.preliminaryCatalystMaker, 1);
 
         List<String> missing = new ArrayList<>();
@@ -180,23 +223,9 @@ public final class TranscendentCatalystAssemblyLine {
             return;
         }
 
-        GTRecipeBuilder builder = GTRecipeBuilder.builder()
-            .metadata(RESEARCH_ITEM, researchItem)
-            .metadata(RESEARCH_STATION_DATA, RESEARCH_STATION_DATA_VALUE)
-            .metadata(SCANNING, new Scanning(SCAN_TIME, SCAN_VOLTAGE))
-            .itemInputs(
-                megaBlastFurnace,
-                megaVacuumFreezer,
-                megaAlloyBlastSmelter,
-                industrialMixer,
-                largeFluidExtractor,
-                fusionComputerMk4,
-                uevCircuit,
-                fieldGeneratorUev);
-
         // The four catalysts, each in the amount the design document gives. A missing fluid is fatal to the recipe, so
         // it is reported and the recipe is dropped rather than registered incomplete. They are collected first because
-        // GTRecipeBuilder.fluidInputs replaces whatever was there before rather than appending to it.
+        // the TecTech adder wants the whole array at once.
         List<FluidStack> catalysts = new ArrayList<>();
         boolean fluidsComplete = true;
         fluidsComplete &= addFluid(catalysts, Materials.ExcitedDTCC, CRUDE_AMOUNT, "激发的粗制超维度催化剂");
@@ -209,11 +238,9 @@ public final class TranscendentCatalystAssemblyLine {
                     + "at least one of the four catalyst fluids is missing.");
             return;
         }
-        builder.fluidInputs(catalysts.toArray(new FluidStack[0]));
 
-        // The recipe builds the controller of the machine itself. The scanned item is only what the assembly line reads
-        // the recipe out of, which is what RESEARCH_ITEM above tells GregTech: the player scans the Preliminary Study
-        // item at the Research Station and puts the resulting flash memory into the assembly line's data bank.
+        // The recipe builds the controller of the machine itself. The scanned item is only what the Research Station
+        // reads the recipe out of.
         ItemStack controller = controllerStack();
         if (controller == null) {
             MyMod.LOG.error(
@@ -221,15 +248,75 @@ public final class TranscendentCatalystAssemblyLine {
                     + "not registered either.");
             return;
         }
-        builder.itemOutputs(controller)
-            .duration(RECIPE_DURATION)
-            .eut(RECIPE_EUT)
-            .addTo(AssemblyLine);
+
+        // TecTech registers the recipe as a research-station one, which is what makes the Research Station write the
+        // data stick in research-station mode. No SCANNING metadata is involved anywhere in this path.
+        int stationRecipesBefore = TecTechRecipeMaps.researchableALRecipeList.size();
+        boolean added = TTRecipeAdder.addResearchableAssemblylineRecipe(
+            researchItem,
+            TOTAL_COMPUTATION,
+            COMPUTATION_PER_SECOND,
+            RESEARCH_VOLTAGE,
+            RESEARCH_AMPERAGE,
+            new Object[] { megaBlastFurnace, megaVacuumFreezer, megaAlloyBlastSmelter, industrialMixer,
+                largeFluidExtractor, fusionComputerMk4, uevCircuit, fieldGeneratorUev },
+            catalysts.toArray(new FluidStack[0]),
+            controller,
+            RECIPE_DURATION,
+            RECIPE_EUT);
+
+        if (!added) {
+            MyMod.LOG.error(
+                "TecTech refused the research-station recipe of the Preliminary Study: Transcendent Catalyst Maker "
+                    + "(research item {}, output {}, {} item inputs, {} fluid inputs); nothing was registered.",
+                describe(researchItem),
+                describe(controller),
+                8,
+                catalysts.size());
+            return;
+        }
+
+        int stationRecipesAfter = TecTechRecipeMaps.researchableALRecipeList.size();
+        if (stationRecipesAfter != stationRecipesBefore + 1) {
+            MyMod.LOG.error(
+                "TecTech's research-station recipe list grew by {} instead of 1, so the research requirement of {} per "
+                    + "second could not be restored; the Research Station will ask for TecTech's clamped {} per second "
+                    + "instead.",
+                stationRecipesAfter - stationRecipesBefore,
+                COMPUTATION_PER_SECOND,
+                Short.MAX_VALUE);
+        } else {
+            restoreResearchRequirement(stationRecipesBefore);
+        }
+
+        // What the Research Station's own NEI page will show. TecTech packs RESEARCH_STATION_DATA as
+        // "amperage | computationPerSecond << 16", with the computation already clamped to 16 signed bits, so this is
+        // where the document's per-second figure and the displayed one can differ.
+        Integer stationData = stationDataInNei(controller);
+        MyMod.LOG.info(
+            "The 闪存 / data stick of the Transcendent Catalyst Maker is written by the Research Station in "
+                + "research-station mode ({} = {}), not in scanner mode: the recipe was registered through "
+                + "TTRecipeAdder.addResearchableAssemblylineRecipe, which puts it into "
+                + "TecTechRecipeMaps.researchableALRecipeList ({}) and into "
+                + "GTRecipe.RecipeAssemblyLine.sAssemblylineRecipes, and no SCANNING metadata is used anywhere. "
+                + "Scan target (the stack the object holder has to hold): {}. RESEARCH_STATION_DATA as displayed by the "
+                + "Research Station's NEI page: {} (amperage {}, computation {} per tick, packed by TecTech as "
+                + "'amperage | computation << 16' with the computation clamped to Short.MAX_VALUE = {}).",
+            "MTEResearchStation.MODE_RESEARCH_STATION",
+            MTEResearchStation.MODE_RESEARCH_STATION,
+            "TecTechRecipeMaps.researchableALRecipeList",
+            describe(researchItem),
+            stationData == null ? "<not found>" : stationData,
+            stationData == null ? 0 : stationData & 0xFFFF,
+            stationData == null ? 0 : stationData >>> 16,
+            Short.MAX_VALUE);
 
         MyMod.LOG.info(
-            "Registered the assembly line recipe of the Transcendent Catalyst Maker controller (output: {}; order: "
+            "Registered the research-station and assembly line recipe of the Transcendent Catalyst Maker controller "
+                + "(output: {}; order: "
                 + "64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {}, with {} / {} / {} / {} "
-                + "mB of the four catalysts, {} EU/t for {} ticks, research item '{}', scanning {} ticks at {} EU/t)",
+                + "mB of the four catalysts, {} EU/t for {} ticks ({} seconds), research item '{}', research {} EU/t at "
+                + "amperage {}, research requirement {} computation per tick for {} seconds = {} in total)",
             describe(controller),
             describe(megaBlastFurnace),
             describe(megaVacuumFreezer),
@@ -245,9 +332,67 @@ public final class TranscendentCatalystAssemblyLine {
             ALIEN_AMOUNT,
             RECIPE_EUT,
             RECIPE_DURATION,
+            RECIPE_DURATION_SECONDS,
             describe(researchItem),
-            SCAN_TIME,
-            SCAN_VOLTAGE);
+            RESEARCH_VOLTAGE,
+            RESEARCH_AMPERAGE,
+            COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION);
+    }
+
+    /**
+     * Puts the document's research requirement back onto the recipe TecTech just registered.
+     * <p>
+     * {@code TTRecipeAdder.addResearchableAssemblylineRecipe} runs
+     * {@code computationRequiredPerSec = GTUtility.clamp(x, 1, Short.MAX_VALUE)} before it stores anything, so the
+     * 770,208 the design document asks for arrives as 32,767. The clamp exists only because TecTech packs this number
+     * into the high 16 bits of the RESEARCH_STATION_DATA display value; the Research Station itself reads
+     * {@code eRequiredData} back out of the {@code long} field the recipe object carries, and the field is public, so
+     * the document's value is written back here and the deviation is reported.
+     * <p>
+     * The research time is derived rather than given: TecTech stores {@code totalComputationRequired /
+     * computationRequiredPerSec}, which is the document's 1,200 seconds only once the per-second figure is the
+     * document's own, so it is recomputed here for the same reason.
+     */
+    private static void restoreResearchRequirement(int index) {
+        TecTechRecipeMaps.TTResearchStationALRecipe recipe = TecTechRecipeMaps.researchableALRecipeList.get(index);
+        long clampedComputationPerSecond = recipe.mComputationRequiredPerSec;
+        int clampedResearchTime = recipe.mResearchTime;
+
+        recipe.mComputationRequiredPerSec = COMPUTATION_PER_SECOND;
+        recipe.mResearchTime = TOTAL_COMPUTATION / COMPUTATION_PER_SECOND;
+
+        MyMod.LOG.warn(
+            "Research requirement: the design document asks for {} computation per tick for {} seconds ({} in total), "
+                + "but TTRecipeAdder clamps the per-second figure to Short.MAX_VALUE = {} before storing it because it "
+                + "packs it into 16 bits of the RESEARCH_STATION_DATA display value. Deviation on the station itself is "
+                + "corrected: {} -> {} computation per tick and {} -> {} seconds, i.e. the document's total of {} is "
+                + "kept. TecTech's own NEI page for the Research Station still shows the clamped per-second figure, "
+                + "which cannot be fixed from here.",
+            COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION,
+            Short.MAX_VALUE,
+            clampedComputationPerSecond,
+            COMPUTATION_PER_SECOND,
+            clampedResearchTime,
+            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION);
+    }
+
+    /**
+     * The RESEARCH_STATION_DATA value TecTech put on the Research Station's NEI recipe for this controller, or
+     * {@code null} when that recipe cannot be found. Reading it back is what shows what the player will actually be
+     * told, as opposed to what was asked for.
+     */
+    private static Integer stationDataInNei(ItemStack controller) {
+        for (GTRecipe recipe : TecTechRecipeMaps.researchStationFakeRecipes.getAllRecipes()) {
+            if (recipe.mOutputs == null || recipe.mOutputs.length == 0) continue;
+            if (!GTUtility.areStacksEqual(recipe.mOutputs[0], controller, true)) continue;
+            return recipe.getMetadata(RESEARCH_STATION_DATA);
+        }
+        return null;
     }
 
     /**
@@ -257,7 +402,7 @@ public final class TranscendentCatalystAssemblyLine {
      * is read from the registry rather than built here.
      */
     private static ItemStack controllerStack() {
-        gregtech.api.interfaces.metatileentity.IMetaTileEntity controller = GregTechAPI.METATILEENTITIES[com.qionsi.simplification.MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER];
+        IMetaTileEntity controller = GregTechAPI.METATILEENTITIES[com.qionsi.simplification.MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER];
         return controller == null ? null : controller.getStackForm(1);
     }
 

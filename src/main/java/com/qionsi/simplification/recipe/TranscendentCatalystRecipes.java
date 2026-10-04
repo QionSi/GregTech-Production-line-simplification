@@ -18,8 +18,10 @@ import bartworks.system.material.WerkstoffLoader;
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.OrePrefixes;
+import gregtech.api.recipe.BasicUIProperties;
 import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTOreDictUnificator;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTRecipeBuilder;
 import gregtech.api.util.GTUtility;
 
@@ -29,6 +31,12 @@ import gregtech.api.util.GTUtility;
  * The numbers come straight from the design document: each recipe takes a growing list of dusts and gases, a
  * programming circuit from 1 to 5, and gives back a thousand millibuckets of the catalyst. The voltage of the machine's
  * energy hatch never caps these; the machine is built to skip tiers without limit.
+ * <p>
+ * One number the document gives cannot be stored: GregTech keeps a recipe's voltage in an {@code int}, and the last
+ * three catalysts are 5,293,264,510 / 20,730,073,930 / 21,383,837,600 EU/t. Those three are fitted in by
+ * {@link #power},
+ * which caps the voltage and stretches the duration so that the total energy stays what the document says, and writes
+ * both numbers into the log.
  */
 public final class TranscendentCatalystRecipes {
 
@@ -90,17 +98,20 @@ public final class TranscendentCatalystRecipes {
 
         resolveCoolants();
 
-        // 1: the crude catalyst, circuit 1, 5s at 285,149,830 EU/t.
+        // 1: the crude catalyst, circuit 1, 5s at 285,149,830 EU/t. Below the int ceiling, so the document's own
+        // voltage and time are used unchanged.
+        RecipePower crude = power("粗制超维度催化剂 / crude", 285_149_830L, 5 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(1)
             .itemInputs(dust(Materials.Iron, 7), dust(Materials.Calcium, 7), dust(Materials.Niobium, 7))
             .fluidInputs(Materials.Helium.getGas(1000))
             .fluidOutputs(Materials.ExcitedDTCC.getFluid(1000))
-            .duration(5 * SECONDS)
-            .eut(285149830L)
+            .duration(crude.duration)
+            .eut(crude.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
-        // 2: the mundane catalyst, circuit 2.
+        // 2: the mundane catalyst, circuit 2. Also below the ceiling.
+        RecipePower mundane = power("平凡超维度催化剂 / mundane", 1_327_684_600L, 5 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(2)
             .itemInputs(
@@ -112,11 +123,12 @@ public final class TranscendentCatalystRecipes {
                 dust(Materials.Sulfur, 7))
             .fluidInputs(Materials.Helium.getGas(1000), Materials.Radon.getGas(1000))
             .fluidOutputs(Materials.ExcitedDTPC.getFluid(1000))
-            .duration(5 * SECONDS)
-            .eut(1327684600L)
+            .duration(mundane.duration)
+            .eut(mundane.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
-        // 3: the radiant catalyst, circuit 3.
+        // 3: the radiant catalyst, circuit 3. From here on the document's voltage no longer fits in an int.
+        RecipePower radiant = power("光辉超维度催化剂 / radiant", 5_293_264_510L, 5 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(3)
             .itemInputs(
@@ -131,11 +143,12 @@ public final class TranscendentCatalystRecipes {
                 dust(Materials.Titanium, 7))
             .fluidInputs(Materials.Helium.getGas(1000), Materials.Radon.getGas(1000), Materials.Nitrogen.getGas(1000))
             .fluidOutputs(Materials.ExcitedDTRC.getFluid(1000))
-            .duration(5 * SECONDS)
-            .eut(5293264510L)
+            .duration(radiant.duration)
+            .eut(radiant.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
         // 4: the alien catalyst, circuit 4.
+        RecipePower alien = power("异星超维度催化剂 / alien", 20_730_073_930L, 5 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(4)
             .itemInputs(
@@ -157,8 +170,8 @@ public final class TranscendentCatalystRecipes {
                 Materials.Nitrogen.getGas(1000),
                 Materials.Oxygen.getGas(1000))
             .fluidOutputs(Materials.ExcitedDTEC.getFluid(1000))
-            .duration(5 * SECONDS)
-            .eut(20730073930L)
+            .duration(alien.duration)
+            .eut(alien.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
         // 5: the stellar catalyst, circuit 5, ten seconds. Its last ingredient is the concentrated primordial stellar
@@ -169,6 +182,7 @@ public final class TranscendentCatalystRecipes {
                 "Could not find the concentrated primordial stellar plasma mixture; the stellar catalyst recipe is not "
                     + "registered.");
         } else {
+            RecipePower stellar = power("恒星超维度催化剂 / stellar", 21_383_837_600L, 10 * SECONDS);
             GTRecipeBuilder.builder()
                 .circuit(5)
                 .itemInputs(
@@ -194,8 +208,8 @@ public final class TranscendentCatalystRecipes {
                     Materials.Oxygen.getGas(1000),
                     stellarPlasma)
                 .fluidOutputs(Materials.ExcitedDTSC.getFluid(1000))
-                .duration(10 * SECONDS)
-                .eut(21383837600L)
+                .duration(stellar.duration)
+                .eut(stellar.eut)
                 .addTo(ModRecipeMaps.transcendentCatalystRecipes);
         }
 
@@ -205,6 +219,122 @@ public final class TranscendentCatalystRecipes {
                 .getAllRecipes()
                 .size(),
             COOLANTS.size());
+
+        logPoolCapacity();
+    }
+
+    /**
+     * The EU/t and the duration one recipe ends up with, after the document's voltage has been fitted into the
+     * {@code int} GregTech stores.
+     */
+    private static final class RecipePower {
+
+        final int eut;
+        final int duration;
+
+        RecipePower(int eut, int duration) {
+            this.eut = eut;
+            this.duration = duration;
+        }
+    }
+
+    /**
+     * The largest EU/t a recipe can carry, which is what {@link GTRecipe#mEUt} can hold.
+     * <p>
+     * {@code GTRecipe.mEUt} is an {@code int}, and {@link GTRecipeBuilder#eut(long)} narrows its argument to an
+     * {@code int} with a plain cast, so a recipe that asks for more than this silently wraps around to a meaningless -
+     * often negative - voltage, and the machines then treat it as "no power and no time". The last three of the five
+     * catalysts are above this ceiling in the design document - 5,293,264,510 / 20,730,073,930 / 21,383,837,600 EU/t -
+     * which is exactly why those three used to show up without a voltage, a power draw or a duration at all.
+     * <p>
+     * The total energy the document asks for is kept: the voltage is capped and the duration is stretched by the same
+     * factor, so {@code eut * duration} is what the document specifies. A recipe at or below the ceiling is left
+     * completely alone. Every decision is written into the log with both the document's number and the one that was
+     * used.
+     */
+    private static RecipePower power(String name, long documentedEUt, int documentedDuration) {
+        long totalEU = documentedEUt * documentedDuration;
+        int eut = (int) Math.min(documentedEUt, (long) Integer.MAX_VALUE);
+        int duration = (int) Math.min(Integer.MAX_VALUE, (totalEU + eut - 1) / eut);
+        if (eut < documentedEUt) {
+            MyMod.LOG.warn(
+                "Recipe '{}': the document asks for {} EU/t for {} ticks ({} EU in total), but GTRecipe.mEUt is an int "
+                    + "and {} exceeds Integer.MAX_VALUE = {}. The voltage is capped at {} EU/t and the duration is "
+                    + "stretched to {} ticks so that the document's total of {} EU is preserved (deviation: {} -> {} "
+                    + "EU/t, {} -> {} ticks).",
+                name,
+                documentedEUt,
+                documentedDuration,
+                totalEU,
+                documentedEUt,
+                Integer.MAX_VALUE,
+                eut,
+                duration,
+                totalEU,
+                documentedEUt,
+                eut,
+                documentedDuration,
+                duration);
+        } else {
+            MyMod.LOG.info(
+                "Recipe '{}': {} EU/t for {} ticks ({} EU in total); below Integer.MAX_VALUE, so the document's own "
+                    + "numbers are used unchanged.",
+                name,
+                documentedEUt,
+                documentedDuration,
+                totalEU);
+        }
+        return new RecipePower(eut, duration);
+    }
+
+    /**
+     * Writes the recipe pool's layout capacity and the widest recipe that actually went into it into the log, so that a
+     * page that is too small for its own recipes - which is what
+     * {@code maxIO(18, 6, 2, 2)} used to cause, by leaving room for two fluid inputs while the stellar catalyst takes
+     * five - is visible in the startup log instead of only in the game.
+     */
+    private static void logPoolCapacity() {
+        try {
+            BasicUIProperties ui = ModRecipeMaps.transcendentCatalystRecipes.getFrontend()
+                .getUIProperties();
+            int widestItemInputs = 0;
+            int widestItemOutputs = 0;
+            int widestFluidInputs = 0;
+            int widestFluidOutputs = 0;
+            for (GTRecipe recipe : ModRecipeMaps.transcendentCatalystRecipes.getBackend()
+                .getAllRecipes()) {
+                widestItemInputs = Math.max(widestItemInputs, length(recipe.mInputs));
+                widestItemOutputs = Math.max(widestItemOutputs, length(recipe.mOutputs));
+                widestFluidInputs = Math.max(widestFluidInputs, length(recipe.mFluidInputs));
+                widestFluidOutputs = Math.max(widestFluidOutputs, length(recipe.mFluidOutputs));
+            }
+            MyMod.LOG.info(
+                "Transcendent Catalyst Maker recipe pool layout: maxIO is {} item inputs / {} item outputs / {} fluid "
+                    + "inputs / {} fluid outputs (argument order: item in, item out, fluid in, fluid out); the widest "
+                    + "registered recipe uses {} item inputs / {} item outputs / {} fluid inputs / {} fluid outputs.",
+                ui.maxItemInputs,
+                ui.maxItemOutputs,
+                ui.maxFluidInputs,
+                ui.maxFluidOutputs,
+                widestItemInputs,
+                widestItemOutputs,
+                widestFluidInputs,
+                widestFluidOutputs);
+            if (widestFluidInputs > ui.maxFluidInputs) {
+                MyMod.LOG.error(
+                    "The Transcendent Catalyst Maker page is too small: a recipe needs {} fluid inputs but maxIO only "
+                        + "lays out {}.",
+                    widestFluidInputs,
+                    ui.maxFluidInputs);
+            }
+        } catch (Throwable t) {
+            MyMod.LOG.warn("Could not read back the Transcendent Catalyst Maker recipe pool layout", t);
+        }
+    }
+
+    /** The length of a stack array, or zero when there is none. */
+    private static int length(Object[] array) {
+        return array == null ? 0 : array.length;
     }
 
     /** The item id and metadata of the concentrated primordial stellar plasma mixture cell. */

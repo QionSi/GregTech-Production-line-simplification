@@ -17,11 +17,10 @@ import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.List;
 
-import javax.annotation.Nonnull;
-
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
@@ -47,7 +46,6 @@ import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBas
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEWirelessEnergy;
-import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -56,7 +54,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
 /**
  * 超维度催化剂制造机 / Transcendent Catalyst Maker.
@@ -72,8 +69,9 @@ import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
  * <ul>
  * <li>It draws power from the wireless network only: an ordinary energy hatch, a multi amp hatch or a laser target
  * hatch is refused while the structure is being checked, and the player is told why.</li>
- * <li>The number of parallels is picked in the GUI rather than derived from the hatches, in powers of two from
- * {@value #MIN_PARALLEL_POWER} to {@value #MAX_PARALLEL_POWER}.</li>
+ * <li>The number of parallels is typed into the machine's power panel rather than derived from the hatches: any whole
+ * number from {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}, {@value #MIN_PARALLEL} until the player says otherwise,
+ * and kept with the machine.</li>
  * <li>Recipe voltage is never capped by the tier of the energy hatch.</li>
  * <li>Hatches are kept apart by role: the recipe fluids go in on the dimensional injection casings, everything that
  * comes out and the item buses go on the transcendent casings, the maintenance hatch sits on an injection casing, and
@@ -105,9 +103,22 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     /** 维度注入机械方块 the shell has to keep. */
     public static final int MIN_INJECTION_CASINGS = 5;
 
-    /** The parallel count is two to the power of the machine mode, between these two powers. */
-    private static final int MIN_PARALLEL_POWER = 0;
-    private static final int MAX_PARALLEL_POWER = 6;
+    /**
+     * The parallel count the player can set, which is the whole range an {@code int} has: one to
+     * {@value #MAX_PARALLEL}. {@value #MIN_PARALLEL} is the default and the floor, and a count that came out of a save
+     * below it is raised back to it, so the effective count can never be zero or negative.
+     */
+    public static final int MIN_PARALLEL = 1;
+    public static final int MAX_PARALLEL = Integer.MAX_VALUE;
+
+    /**
+     * Marks how a save stores the parallel count. Version 2 is the power panel's own text box
+     * ({@code powerPanelMaxParallel}) plus the {@code alwaysMaxParallel} flag; version 1 and earlier stored the count
+     * in the machine mode. The marker is what lets a save written before the rework be recognised and started over at
+     * {@value #MIN_PARALLEL} instead of being read as "use the maximum".
+     */
+    private static final String NBT_PARALLEL_VERSION = "simplificationParallelVersion";
+    private static final int PARALLEL_VERSION = 2;
 
     /** Number of lines the tooltip takes from the language file; missing ones are skipped. */
     private static final int TOOLTIP_LINES = 24;
@@ -136,10 +147,62 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
 
     public MTETranscendentCatalystMaker(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
+        startAtOneParallel();
     }
 
     public MTETranscendentCatalystMaker(String aName) {
         super(aName);
+        startAtOneParallel();
+    }
+
+    /**
+     * Sets the machine up so that its parallel count is the player's own number, starting at {@value #MIN_PARALLEL}.
+     * <p>
+     * GregTech's power panel has two halves: a text box holding {@code powerPanelMaxParallel}, which is what the player
+     * types, and a "always use the maximum" checkbox holding {@code alwaysMaxParallel}, which makes the machine ignore
+     * the box and run at {@link #getMaxParallelRecipes()} - here the whole int range. The checkbox is off and the box
+     * is at one when a machine is first placed, so a freshly built machine runs one recipe at a time until its owner
+     * says otherwise.
+     */
+    private void startAtOneParallel() {
+        alwaysMaxParallel = false;
+        powerPanelMaxParallel = MIN_PARALLEL;
+    }
+
+    @Override
+    public void saveNBTData(NBTTagCompound aNBT) {
+        super.saveNBTData(aNBT);
+        aNBT.setInteger(NBT_PARALLEL_VERSION, PARALLEL_VERSION);
+    }
+
+    /**
+     * Reads the parallel count back, and repairs the two ways a save can disagree with the current machine.
+     * <p>
+     * A save written before the parallel rework has no version marker: it kept the count as a machine mode of 0..6 and
+     * left {@code alwaysMaxParallel} at GregTech's default of {@code true}, which against today's maximum would mean
+     * "run {@value #MAX_PARALLEL} recipes at a time". Such a save is started over at {@value #MIN_PARALLEL}. A save
+     * that does have the marker keeps its number, but never below {@value #MIN_PARALLEL}: {@code getTrueParallel()}
+     * floors the result at one anyway, and the coolant a run burns is multiplied by this number, so a stored zero or a
+     * negative one is not something to pass on.
+     */
+    @Override
+    public void loadNBTData(NBTTagCompound aNBT) {
+        super.loadNBTData(aNBT);
+        if (aNBT.getInteger(NBT_PARALLEL_VERSION) < PARALLEL_VERSION) {
+            MyMod.LOG.info(
+                "Transcendent Catalyst Maker: this machine was saved before the parallel count became a typed-in "
+                    + "number (save version {}); its parallel count starts over at {}.",
+                aNBT.getInteger(NBT_PARALLEL_VERSION),
+                MIN_PARALLEL);
+            startAtOneParallel();
+        }
+        if (powerPanelMaxParallel < MIN_PARALLEL) {
+            MyMod.LOG.info(
+                "Transcendent Catalyst Maker: the stored parallel count {} is below the minimum; it is raised to {}.",
+                powerPanelMaxParallel,
+                MIN_PARALLEL);
+            powerPanelMaxParallel = MIN_PARALLEL;
+        }
     }
 
     @Override
@@ -166,6 +229,15 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
             StructureBlueprintFile.count(shape, 'F'),
             MIN_TRANSCENDENT_CASINGS,
             MIN_INJECTION_CASINGS);
+        MyMod.LOG.info(
+            "Transcendent Catalyst Maker: parallel count is the number typed into the power panel - allowed range {} "
+                + "to {} (getMaxParallelRecipes() returns {} as the ceiling, the player's own number is "
+                + "powerPanelMaxParallel and getTrueParallel() is what the run uses) - it starts at {} and is stored "
+                + "with the machine.",
+            MIN_PARALLEL,
+            MAX_PARALLEL,
+            MAX_PARALLEL,
+            MIN_PARALLEL);
     }
 
     private static IStructureDefinition<MTETranscendentCatalystMaker> getDefinition() {
@@ -313,10 +385,22 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
         return ModRecipeMaps.transcendentCatalystRecipes;
     }
 
-    /** Parallels are two to the power of the machine mode the player picked in the GUI. */
+    /**
+     * The most parallels this machine can ever run: the whole positive {@code int} range.
+     * <p>
+     * GregTech calls this "the absolute maximum number of parallels possible right now" and uses it for two things:
+     * {@code getTrueParallel()} caps the player's number with it, and the power panel's text box takes its upper bound
+     * from it - {@code makeParallelConfiguratorTextFieldWidget} builds the box as {@code numbersInt(1,
+     * getMaxParallelRecipes())}, and the legacy panel's validator clamps to the same pair. Returning the ceiling here
+     * is
+     * therefore what makes the box accept any number from {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}; the number
+     * the player actually typed lives in {@code powerPanelMaxParallel} and is what {@link #getTrueParallel()} returns.
+     * It used to return {@code 1 << machineMode}, which is what held the count to the seven powers of two from 1 to 64
+     * that the mode button could cycle through.
+     */
     @Override
     public int getMaxParallelRecipes() {
-        return 1 << machineMode;
+        return MAX_PARALLEL;
     }
 
     /**
@@ -332,23 +416,32 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
         Coolant coolant = TranscendentCatalystRecipes.pickCoolant();
         if (coolant == null) return super.checkProcessing();
 
-        FluidStack wanted = coolant.fluid.copy();
-        wanted.amount = coolant.amount * Math.max(1, getTrueParallel());
-        if (!hasCoolant(wanted)) return CheckRecipeResultRegistry.NO_RECIPE;
+        // The coolant a run burns grows with the parallel count, and that count can be the whole int range, so the
+        // product is worked out as a long: 100,000 x Integer.MAX_VALUE does not fit in an int, and an overflowed
+        // requirement would come out negative and pass every "is there enough?" test.
+        long wantedAmount = (long) coolant.amount * Math.max(1, getTrueParallel());
+        if (!hasCoolant(coolant.fluid, wantedAmount)) return CheckRecipeResultRegistry.NO_RECIPE;
 
         CheckRecipeResult result = super.checkProcessing();
-        if (result.wasSuccessful()) depleteInput(wanted);
+        if (result.wasSuccessful()) {
+            // A single FluidStack cannot hold more millibuckets than an int, so a requirement larger than that is
+            // drained up to the int limit. hasCoolant() above has already established that at least this much is
+            // there, so nothing is taken that is not owed.
+            FluidStack wanted = coolant.fluid.copy();
+            wanted.amount = (int) Math.min(wantedAmount, (long) Integer.MAX_VALUE);
+            depleteInput(wanted);
+        }
         return result;
     }
 
     /** True when the input hatches together hold at least this much of the fluid. */
-    private boolean hasCoolant(FluidStack wanted) {
-        int found = 0;
+    private boolean hasCoolant(FluidStack fluid, long wantedAmount) {
+        long found = 0;
         for (MTEHatchInput hatch : mInputHatches) {
             FluidStack inHatch = hatch.getFluid();
-            if (inHatch != null && GTUtility.areFluidsEqual(inHatch, wanted)) found += inHatch.amount;
+            if (inHatch != null && GTUtility.areFluidsEqual(inHatch, fluid)) found += inHatch.amount;
         }
-        return found >= wanted.amount;
+        return found >= wantedAmount;
     }
 
     @Override
@@ -369,47 +462,11 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     }
 
     /**
-     * The parallel count is picked with the mode button in the GUI: mode {@code n} is {@code 2^n} parallels, from one
-     * to sixty four. The base class stores the mode with the machine, so the choice survives a reload without any NBT
-     * of our own.
+     * The machine has no machine modes: its one setting, the parallel count, is a number the player types into the
+     * power panel rather than a mode the mode button cycles through. GregTech draws the power panel button, and the
+     * text box inside it, for every multiblock - {@code supportsPowerPanel()} is already {@code true} by default - so
+     * nothing has to be added to the GUI here.
      */
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public void setMachineMode(int aMode) {
-        machineMode = Math.max(MIN_PARALLEL_POWER, Math.min(MAX_PARALLEL_POWER, aMode));
-    }
-
-    /**
-     * The machine's GUI, with one mode icon per selectable parallel count.
-     * <p>
-     * The icons have to be handed to the GUI itself: that list is what the button checks to decide whether the machine
-     * has modes at all, so filling in the legacy {@code setMachineModeIcons()} alone leaves the button out of the
-     * window. The icons are all the same here because what matters is the label, which reports the parallel count.
-     */
-    @Override
-    protected @Nonnull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DEFAULT);
-    }
-
-    /**
-     * Language key of the mode, which is what the GUI prints next to the button: mode {@code n} is {@code 2^n}
-     * parallels.
-     */
-    @Override
-    public String getMachineModeKey() {
-        return "simplification.transcendent_catalyst_maker.parallel." + machineMode;
-    }
 
     @Override
     protected MultiblockTooltipBuilder createTooltip() {

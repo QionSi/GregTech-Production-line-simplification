@@ -35,13 +35,6 @@ simplification.tooltip.nascentWhiteBranch.effect.7=比量现行之翼：赋予�
 # 超维度催化剂制造机
 gt.blockmachines.multimachine.transcendentcatalystmaker.name=超维度催化剂制造机
 simplification.recipe.transcendent_catalyst=超维度催化剂制造机
-simplification.transcendent_catalyst_maker.parallel.0=并行 1×
-simplification.transcendent_catalyst_maker.parallel.1=并行 2×
-simplification.transcendent_catalyst_maker.parallel.2=并行 4×
-simplification.transcendent_catalyst_maker.parallel.3=并行 8×
-simplification.transcendent_catalyst_maker.parallel.4=并行 16×
-simplification.transcendent_catalyst_maker.parallel.5=并行 32×
-simplification.transcendent_catalyst_maker.parallel.6=并行 64×
 simplification.structure.error.wireless_energy_only=这台机器只能从无线电网取电：能源仓必须是无线能源仓
 simplification.tooltip.transcendentCatalystMaker.1=通过超导线圈加热物品使其液化为等离子体，同时将其搅拌成催化剂
 simplification.tooltip.transcendentCatalystMaker.2=配方电压等级不受能源仓电压限制
@@ -59,7 +52,7 @@ simplification.tooltip.transcendentCatalystMaker.13=输入仓（配方流体）�
 simplification.tooltip.transcendentCatalystMaker.14=输入仓（冷却介质）：任意维度桥接方块
 simplification.tooltip.transcendentCatalystMaker.15=维护仓：任意维度注入机械方块
 simplification.tooltip.transcendentCatalystMaker.16=输出仓 / 输出总线 / 输入总线：任意超维度机械方块
-simplification.tooltip.transcendentCatalystMaker.17=并行数量可在 GUI 中手动调整（1× 到 64×）
+simplification.tooltip.transcendentCatalystMaker.17=并行数量在能源面板（GUI 右侧按钮）中手动输入：范围 1 到 2147483647，默认 1，随存档保存
 
 # 超维度催化剂流体（键名取自启动日志里 Werkstoff 实测的 language key）
 

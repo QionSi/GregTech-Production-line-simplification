@@ -69,16 +69,44 @@ public final class ModRecipeMaps {
         .frontend(LargeNEIFrontend::new)
         .build();
 
+    /** Item inputs the 超维度催化剂制造机 page is laid out for: the widest recipe uses sixteen. */
+    public static final int TRANSCENDENT_CATALYST_MAX_ITEM_INPUTS = 18;
+
+    /** Item outputs that page is laid out for; the recipes only ever return a fluid. */
+    public static final int TRANSCENDENT_CATALYST_MAX_ITEM_OUTPUTS = 2;
+
+    /**
+     * Fluid inputs that page is laid out for. The stellar catalyst is the widest recipe and takes five fluids - helium,
+     * radon, nitrogen, oxygen and the concentrated primordial stellar plasma mixture - so six is one row of three more
+     * than the pool needs, which is what {@link LargeNEIFrontend} lays its fluid band out in.
+     */
+    public static final int TRANSCENDENT_CATALYST_MAX_FLUID_INPUTS = 6;
+
+    /** Fluid outputs that page is laid out for; every recipe returns exactly one. */
+    public static final int TRANSCENDENT_CATALYST_MAX_FLUID_OUTPUTS = 2;
+
     /**
      * 超维度催化剂制造机配方池 / Transcendent Catalyst Maker recipe pool.
      * <p>
-     * The widest recipe takes fifteen dusts and four gases and gives a single fluid back, so the page is sized for a
-     * little more than that: eighteen item inputs, six fluid inputs, two item outputs and two fluid outputs. These
-     * numbers only describe the NEI and GUI layout and do not restrict what a recipe may declare.
+     * The widest recipe takes fifteen dusts, the programming circuit and five fluids - helium, radon, nitrogen, oxygen
+     * and the concentrated primordial stellar plasma mixture - and gives a single fluid back. The page is therefore
+     * sized for a little more than that: eighteen item inputs, six fluid inputs, two item outputs and two fluid
+     * outputs.
+     * <p>
+     * {@link RecipeMapBuilder#maxIO} takes its arguments in the order {@code (maxItemInputs, maxItemOutputs,
+     * maxFluidInputs, maxFluidOutputs)}. This call used to read {@code maxIO(18, 6, 2, 2)}, which put the six in the
+     * item <em>output</em> slot and left the fluid <em>input</em> capacity at two, so NEI and the machine GUI drew room
+     * for two fluids while the stellar catalyst needs five and the page was too short for the rest. The numbers only
+     * describe the NEI and GUI layout and do not restrict what a recipe may declare, which is why the recipes worked
+     * but their page did not.
      */
     public static final RecipeMap<RecipeMapBackend> transcendentCatalystRecipes = RecipeMapBuilder
         .of("simplification.recipe.transcendent_catalyst")
-        .maxIO(18, 6, 2, 2)
+        .maxIO(
+            TRANSCENDENT_CATALYST_MAX_ITEM_INPUTS,
+            TRANSCENDENT_CATALYST_MAX_ITEM_OUTPUTS,
+            TRANSCENDENT_CATALYST_MAX_FLUID_INPUTS,
+            TRANSCENDENT_CATALYST_MAX_FLUID_OUTPUTS)
         .minInputs(0, 1)
         .neiTransferRect(52, 24, 18, 54)
         .neiTransferRect(106, 24, 18, 54)
