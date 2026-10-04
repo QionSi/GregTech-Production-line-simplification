@@ -54,7 +54,7 @@ simplification.tooltip.transcendentCatalystMaker.13=输入仓（配方流体）�
 simplification.tooltip.transcendentCatalystMaker.14=输入仓（冷却介质）：任意维度桥接方块
 simplification.tooltip.transcendentCatalystMaker.15=维护仓：任意维度注入机械方块
 simplification.tooltip.transcendentCatalystMaker.16=输出仓 / 输出总线 / 输入总线：任意超维度机械方块
-simplification.tooltip.transcendentCatalystMaker.17=并行数量在能源面板（GUI 右侧按钮）中手动输入：范围 1 到 2147483647，默认 1，随存档保存
+simplification.tooltip.transcendentCatalystMaker.17=并行数量在能源面板（GUI 右侧按钮）中手动输入：范围 1 到 33554432，默认 1，随存档保存
 
 # Item: Preliminary Study: Transcendent Catalyst Maker (the research item of the assembly line recipe)
 item.simplification.preliminaryCatalystMaker.name=Preliminary Study: Transcendent Catalyst Maker

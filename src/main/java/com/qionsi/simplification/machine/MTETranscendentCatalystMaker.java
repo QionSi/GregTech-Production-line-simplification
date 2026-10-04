@@ -104,12 +104,12 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     public static final int MIN_INJECTION_CASINGS = 5;
 
     /**
-     * The parallel count the player can set, which is the whole range an {@code int} has: one to
-     * {@value #MAX_PARALLEL}. {@value #MIN_PARALLEL} is the default and the floor, and a count that came out of a save
-     * below it is raised back to it, so the effective count can never be zero or negative.
+     * The parallel count the player can set: one to {@value #MAX_PARALLEL} (33,554,432 = 2^25). {@value #MIN_PARALLEL}
+     * is the default and the floor, and a count that came out of a save outside the range is brought back into it, so
+     * the effective count can never be zero or negative.
      */
     public static final int MIN_PARALLEL = 1;
-    public static final int MAX_PARALLEL = Integer.MAX_VALUE;
+    public static final int MAX_PARALLEL = 33_554_432;
 
     /**
      * Marks how a save stores the parallel count. Version 2 is the power panel's own text box
@@ -160,9 +160,10 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
      * <p>
      * GregTech's power panel has two halves: a text box holding {@code powerPanelMaxParallel}, which is what the player
      * types, and a "always use the maximum" checkbox holding {@code alwaysMaxParallel}, which makes the machine ignore
-     * the box and run at {@link #getMaxParallelRecipes()} - here the whole int range. The checkbox is off and the box
-     * is at one when a machine is first placed, so a freshly built machine runs one recipe at a time until its owner
-     * says otherwise.
+     * the box and run at {@link #getMaxParallelRecipes()} - here {@value #MAX_PARALLEL} recipes. The checkbox is off
+     * and
+     * the box is at one when a machine is first placed, so a freshly built machine runs one recipe at a time until its
+     * owner says otherwise.
      */
     private void startAtOneParallel() {
         alwaysMaxParallel = false;
@@ -181,9 +182,9 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
      * A save written before the parallel rework has no version marker: it kept the count as a machine mode of 0..6 and
      * left {@code alwaysMaxParallel} at GregTech's default of {@code true}, which against today's maximum would mean
      * "run {@value #MAX_PARALLEL} recipes at a time". Such a save is started over at {@value #MIN_PARALLEL}. A save
-     * that does have the marker keeps its number, but never below {@value #MIN_PARALLEL}: {@code getTrueParallel()}
-     * floors the result at one anyway, and the coolant a run burns is multiplied by this number, so a stored zero or a
-     * negative one is not something to pass on.
+     * that does have the marker keeps its number, but never outside {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}:
+     * {@code getTrueParallel()} floors the result at one anyway, and the coolant a run burns is multiplied by this
+     * number, so a stored zero or a negative one is not something to pass on.
      */
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
@@ -196,12 +197,16 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                 MIN_PARALLEL);
             startAtOneParallel();
         }
-        if (powerPanelMaxParallel < MIN_PARALLEL) {
+        if (powerPanelMaxParallel < MIN_PARALLEL || powerPanelMaxParallel > MAX_PARALLEL) {
+            int clamped = GTUtility.clamp(powerPanelMaxParallel, MIN_PARALLEL, MAX_PARALLEL);
             MyMod.LOG.info(
-                "Transcendent Catalyst Maker: the stored parallel count {} is below the minimum; it is raised to {}.",
+                "Transcendent Catalyst Maker: the stored parallel count {} is outside the allowed range {} to {}; it "
+                    + "is brought back to {}.",
                 powerPanelMaxParallel,
-                MIN_PARALLEL);
-            powerPanelMaxParallel = MIN_PARALLEL;
+                MIN_PARALLEL,
+                MAX_PARALLEL,
+                clamped);
+            powerPanelMaxParallel = clamped;
         }
     }
 
@@ -386,15 +391,15 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     }
 
     /**
-     * The most parallels this machine can ever run: the whole positive {@code int} range.
+     * The most parallels this machine can ever run: {@value #MAX_PARALLEL}, i.e. 2^25.
      * <p>
      * GregTech calls this "the absolute maximum number of parallels possible right now" and uses it for two things:
      * {@code getTrueParallel()} caps the player's number with it, and the power panel's text box takes its upper bound
      * from it - {@code makeParallelConfiguratorTextFieldWidget} builds the box as {@code numbersInt(1,
      * getMaxParallelRecipes())}, and the legacy panel's validator clamps to the same pair. Returning the ceiling here
-     * is
-     * therefore what makes the box accept any number from {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}; the number
-     * the player actually typed lives in {@code powerPanelMaxParallel} and is what {@link #getTrueParallel()} returns.
+     * is therefore what makes the box accept any number from {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}; the
+     * number the player actually typed lives in {@code powerPanelMaxParallel} and is what
+     * {@link #getTrueParallel()} returns, and "always use the maximum" makes the machine use this ceiling itself.
      * It used to return {@code 1 << machineMode}, which is what held the count to the seven powers of two from 1 to 64
      * that the mode button could cycle through.
      */
@@ -416,8 +421,8 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
         Coolant coolant = TranscendentCatalystRecipes.pickCoolant();
         if (coolant == null) return super.checkProcessing();
 
-        // The coolant a run burns grows with the parallel count, and that count can be the whole int range, so the
-        // product is worked out as a long: 100,000 x Integer.MAX_VALUE does not fit in an int, and an overflowed
+        // The coolant a run burns grows with the parallel count, and that count can go up to MAX_PARALLEL, so the
+        // product is worked out as a long: 100,000 x 33,554,432 = 3.36e12 does not fit in an int, and an overflowed
         // requirement would come out negative and pass every "is there enough?" test.
         long wantedAmount = (long) coolant.amount * Math.max(1, getTrueParallel());
         if (!hasCoolant(coolant.fluid, wantedAmount)) return CheckRecipeResultRegistry.NO_RECIPE;

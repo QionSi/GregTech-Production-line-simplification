@@ -1,7 +1,5 @@
 package com.qionsi.simplification.recipe;
 
-import static gregtech.api.util.GTRecipeConstants.RESEARCH_STATION_DATA;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,7 +17,6 @@ import gregtech.api.enums.MetaTileEntityIDs;
 import gregtech.api.enums.OrePrefixes;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.util.GTOreDictUnificator;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gtPlusPlus.xmod.gregtech.api.enums.GregtechItemList;
 import tectech.recipe.TTRecipeAdder;
@@ -59,16 +56,21 @@ import tectech.thing.metaTileEntity.multi.MTEResearchStation;
  * second entry with the same output into the assembly line list, which
  * {@code AssemblyLineUtils.assertSingleRecipe} refuses).
  *
- * <h2>The two numbers TecTech will not take as given</h2>
+ * <h2>The research requirement</h2>
  *
- * The design document's research requirement is 770,208 computation per second for 1,200 seconds, i.e. 924,249,600
- * computation in total. {@code TTRecipeAdder} clamps the per-second figure to {@code Short.MAX_VALUE} = 32,767, because
- * it packs it into the high 16 bits of the RESEARCH_STATION_DATA metadata that the Research Station's NEI page
- * displays.
- * The clamp is only about that display: the station itself keeps the requirement in a {@code long}
- * ({@code eRequiredData}), so the document's 770,208 is honoured on the machine and the clamped display value is
- * reported in the log. The research time is not passed in at all - it is
- * {@code totalComputationRequired / computationRequiredPerSec}, which the document's own numbers make 1,200 seconds.
+ * The research is 32,767 computation per second for 1,200 seconds. {@code TTRecipeAdder} clamps the per-second figure
+ * to
+ * {@code Short.MAX_VALUE} = 32,767 - the value was chosen as that ceiling from the start, so both the calculation the
+ * Research Station runs and the RESEARCH_STATION_DATA the station's NEI page displays use 32,767 and the clamp never
+ * changes anything.
+ * <p>
+ * TecTech takes no research time at all: {@code addResearchableAssemblylineRecipe} takes the computation for the whole
+ * research ({@code totalComputationRequired}) and the per-second figure, and stores
+ * {@code totalComputationRequired / computationRequiredPerSec} as the research time in seconds. The total passed in is
+ * therefore 32,767 x 1,200 = 39,320,400, which is what the Research Station's NEI page prints as "Total computation".
+ * The station charges 39,320,400 x 20 computation over the research at 32,767 per second, which is exactly the 1,200
+ * seconds asked for. (TecTech's own recipes read the same way: {@code total_computation / comp_per_second} is their
+ * research time in seconds.)
  *
  * <h2>Why this is registered so late, and why it is a separate file</h2>
  *
@@ -99,11 +101,20 @@ public final class TranscendentCatalystAssemblyLine {
     private static final int ALIEN_AMOUNT = 128_000;
 
     /**
-     * The research requirement the design document gives: 770,208 computation per second for 924,249,600 in total, i.e.
-     * 1,200 seconds. The per-second figure is what TecTech clamps; the total is not.
+     * The research requirement: 32,767 computation per second - {@code Short.MAX_VALUE}, which is also the largest
+     * figure TecTech's clamp and its 16 bit RESEARCH_STATION_DATA field can carry - for {@value #RESEARCH_SECONDS}
+     * seconds.
+     * <p>
+     * TecTech is handed the computation for the whole research rather than the time, and works the time out itself as
+     * {@code totalComputationRequired / computationRequiredPerSec}, in seconds. The total is therefore exactly
+     * {@code COMPUTATION_PER_SECOND * RESEARCH_SECONDS} = 39,320,400: that is what the station's NEI page prints as
+     * "Total computation" (the recipe's {@code mComputation}) and what it charges its computation buffer
+     * ({@code MTEResearchStation.computationRequired = mComputation * 20}) at {@code eRequiredData =
+     * mComputationRequiredPerSec} per second, which is 1,200 seconds.
      */
-    private static final int TOTAL_COMPUTATION = 924_249_600;
-    private static final int COMPUTATION_PER_SECOND = 770_208;
+    private static final int COMPUTATION_PER_SECOND = 32_767;
+    private static final int RESEARCH_SECONDS = 1_200;
+    private static final int TOTAL_COMPUTATION = COMPUTATION_PER_SECOND * RESEARCH_SECONDS;
 
     /** 1,327,684,600 EU/t, the research voltage the design document gives. */
     private static final int RESEARCH_VOLTAGE = 1_327_684_600;
@@ -279,44 +290,45 @@ public final class TranscendentCatalystAssemblyLine {
         int stationRecipesAfter = TecTechRecipeMaps.researchableALRecipeList.size();
         if (stationRecipesAfter != stationRecipesBefore + 1) {
             MyMod.LOG.error(
-                "TecTech's research-station recipe list grew by {} instead of 1, so the research requirement of {} per "
-                    + "second could not be restored; the Research Station will ask for TecTech's clamped {} per second "
-                    + "instead.",
+                "TecTech's research-station recipe list grew by {} instead of 1, so the research requirement of {} "
+                    + "computation per second for {} seconds may not be the one the Research Station runs.",
                 stationRecipesAfter - stationRecipesBefore,
                 COMPUTATION_PER_SECOND,
-                Short.MAX_VALUE);
-        } else {
-            restoreResearchRequirement(stationRecipesBefore);
+                RESEARCH_SECONDS);
         }
 
         // What the Research Station's own NEI page will show. TecTech packs RESEARCH_STATION_DATA as
-        // "amperage | computationPerSecond << 16", with the computation already clamped to 16 signed bits, so this is
-        // where the document's per-second figure and the displayed one can differ.
-        Integer stationData = stationDataInNei(controller);
+        // "amperage | computationPerSecond << 16", with the computation clamped to 16 signed bits - and since
+        // COMPUTATION_PER_SECOND is that ceiling, the displayed figure is the one that was asked for.
         MyMod.LOG.info(
             "The 闪存 / data stick of the Transcendent Catalyst Maker is written by the Research Station in "
                 + "research-station mode ({} = {}), not in scanner mode: the recipe was registered through "
                 + "TTRecipeAdder.addResearchableAssemblylineRecipe, which puts it into "
                 + "TecTechRecipeMaps.researchableALRecipeList ({}) and into "
                 + "GTRecipe.RecipeAssemblyLine.sAssemblylineRecipes, and no SCANNING metadata is used anywhere. "
-                + "Scan target (the stack the object holder has to hold): {}. RESEARCH_STATION_DATA as displayed by the "
-                + "Research Station's NEI page: {} (amperage {}, computation {} per tick, packed by TecTech as "
-                + "'amperage | computation << 16' with the computation clamped to Short.MAX_VALUE = {}).",
+                + "Scan target (the stack the object holder has to hold): {}. Research requirement: {} computation per "
+                + "second for {} seconds = {} computation in total, at {} EU/t and amperage {}. TecTech's NEI page for "
+                + "the Research Station shows what was asked for rather than a clamped figure: Total computation {} / "
+                + "min computation per second {} (= {} seconds).",
             "MTEResearchStation.MODE_RESEARCH_STATION",
             MTEResearchStation.MODE_RESEARCH_STATION,
             "TecTechRecipeMaps.researchableALRecipeList",
             describe(researchItem),
-            stationData == null ? "<not found>" : stationData,
-            stationData == null ? 0 : stationData & 0xFFFF,
-            stationData == null ? 0 : stationData >>> 16,
-            Short.MAX_VALUE);
+            COMPUTATION_PER_SECOND,
+            RESEARCH_SECONDS,
+            TOTAL_COMPUTATION,
+            RESEARCH_VOLTAGE,
+            RESEARCH_AMPERAGE,
+            TOTAL_COMPUTATION,
+            COMPUTATION_PER_SECOND,
+            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND);
 
         MyMod.LOG.info(
             "Registered the research-station and assembly line recipe of the Transcendent Catalyst Maker controller "
                 + "(output: {}; order: "
                 + "64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {}, with {} / {} / {} / {} "
                 + "mB of the four catalysts, {} EU/t for {} ticks ({} seconds), research item '{}', research {} EU/t at "
-                + "amperage {}, research requirement {} computation per tick for {} seconds = {} in total)",
+                + "amperage {}, research requirement {} computation per second for {} seconds = {} in total)",
             describe(controller),
             describe(megaBlastFurnace),
             describe(megaVacuumFreezer),
@@ -337,62 +349,8 @@ public final class TranscendentCatalystAssemblyLine {
             RESEARCH_VOLTAGE,
             RESEARCH_AMPERAGE,
             COMPUTATION_PER_SECOND,
-            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
+            RESEARCH_SECONDS,
             TOTAL_COMPUTATION);
-    }
-
-    /**
-     * Puts the document's research requirement back onto the recipe TecTech just registered.
-     * <p>
-     * {@code TTRecipeAdder.addResearchableAssemblylineRecipe} runs
-     * {@code computationRequiredPerSec = GTUtility.clamp(x, 1, Short.MAX_VALUE)} before it stores anything, so the
-     * 770,208 the design document asks for arrives as 32,767. The clamp exists only because TecTech packs this number
-     * into the high 16 bits of the RESEARCH_STATION_DATA display value; the Research Station itself reads
-     * {@code eRequiredData} back out of the {@code long} field the recipe object carries, and the field is public, so
-     * the document's value is written back here and the deviation is reported.
-     * <p>
-     * The research time is derived rather than given: TecTech stores {@code totalComputationRequired /
-     * computationRequiredPerSec}, which is the document's 1,200 seconds only once the per-second figure is the
-     * document's own, so it is recomputed here for the same reason.
-     */
-    private static void restoreResearchRequirement(int index) {
-        TecTechRecipeMaps.TTResearchStationALRecipe recipe = TecTechRecipeMaps.researchableALRecipeList.get(index);
-        long clampedComputationPerSecond = recipe.mComputationRequiredPerSec;
-        int clampedResearchTime = recipe.mResearchTime;
-
-        recipe.mComputationRequiredPerSec = COMPUTATION_PER_SECOND;
-        recipe.mResearchTime = TOTAL_COMPUTATION / COMPUTATION_PER_SECOND;
-
-        MyMod.LOG.warn(
-            "Research requirement: the design document asks for {} computation per tick for {} seconds ({} in total), "
-                + "but TTRecipeAdder clamps the per-second figure to Short.MAX_VALUE = {} before storing it because it "
-                + "packs it into 16 bits of the RESEARCH_STATION_DATA display value. Deviation on the station itself is "
-                + "corrected: {} -> {} computation per tick and {} -> {} seconds, i.e. the document's total of {} is "
-                + "kept. TecTech's own NEI page for the Research Station still shows the clamped per-second figure, "
-                + "which cannot be fixed from here.",
-            COMPUTATION_PER_SECOND,
-            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
-            TOTAL_COMPUTATION,
-            Short.MAX_VALUE,
-            clampedComputationPerSecond,
-            COMPUTATION_PER_SECOND,
-            clampedResearchTime,
-            TOTAL_COMPUTATION / COMPUTATION_PER_SECOND,
-            TOTAL_COMPUTATION);
-    }
-
-    /**
-     * The RESEARCH_STATION_DATA value TecTech put on the Research Station's NEI recipe for this controller, or
-     * {@code null} when that recipe cannot be found. Reading it back is what shows what the player will actually be
-     * told, as opposed to what was asked for.
-     */
-    private static Integer stationDataInNei(ItemStack controller) {
-        for (GTRecipe recipe : TecTechRecipeMaps.researchStationFakeRecipes.getAllRecipes()) {
-            if (recipe.mOutputs == null || recipe.mOutputs.length == 0) continue;
-            if (!GTUtility.areStacksEqual(recipe.mOutputs[0], controller, true)) continue;
-            return recipe.getMetadata(RESEARCH_STATION_DATA);
-        }
-        return null;
     }
 
     /**
