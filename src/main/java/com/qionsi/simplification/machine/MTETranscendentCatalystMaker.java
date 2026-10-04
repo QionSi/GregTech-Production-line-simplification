@@ -473,6 +473,20 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
      * nothing has to be added to the GUI here.
      */
 
+    /**
+     * Input separation, the button GregTech draws next to the power panel. The machine offers it and leaves the choice
+     * to the player: it starts switched off, because these recipes take their solids from several buses at once.
+     */
+    @Override
+    public boolean supportsInputSeparation() {
+        return true;
+    }
+
+    @Override
+    public boolean getDefaultInputSeparationMode() {
+        return false;
+    }
+
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
@@ -481,6 +495,15 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
             String key = "simplification.tooltip.transcendentCatalystMaker." + line;
             if (StatCollector.canTranslate(key)) tt.addInfo(StatCollector.translateToLocal(key));
         }
+        // The range is printed straight from this machine's own constants, so the tooltip can never drift away from
+        // what the power panel actually allows.
+        tt.addInfo(
+            "Parallels are typed into the power panel: " + MIN_PARALLEL
+                + " to "
+                + MAX_PARALLEL
+                + ", starting at "
+                + MIN_PARALLEL
+                + ".");
         // beginStructureBlock takes width, height and depth in that order, all three read off the blueprint so that an
         // edit to the structure keeps the tooltip correct.
         tt.beginStructureBlock(
