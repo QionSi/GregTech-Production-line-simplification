@@ -163,14 +163,12 @@ public final class TranscendentCatalystRecipes {
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
         // 5: the stellar catalyst, circuit 5, ten seconds. Its last ingredient is the concentrated primordial stellar
-        // plasma mixture, which the player knows as the cell with the id the design document gives.
-        FluidStack stellarPlasma = fluidFromCell(STELLAR_PLASMA_ITEM_ID, STELLAR_PLASMA_META, 25);
+        // plasma mixture, which the player knows as a filled cell.
+        FluidStack stellarPlasma = fluidByContainerName(STELLAR_PLASMA_NAMES, 25);
         if (stellarPlasma == null) {
             MyMod.LOG.error(
-                "Could not read the concentrated primordial stellar plasma mixture out of the cell {}:{}; the stellar "
-                    + "catalyst recipe is not registered.",
-                STELLAR_PLASMA_ITEM_ID,
-                STELLAR_PLASMA_META);
+                "Could not find the concentrated primordial stellar plasma mixture; the stellar catalyst recipe is not "
+                    + "registered.");
         } else {
             GTRecipeBuilder.builder()
                 .circuit(5)
@@ -231,7 +229,50 @@ public final class TranscendentCatalystRecipes {
         // GregTech knows the IC2 coolant by name, which is steadier than going through its cell.
         addCoolant("IC2 coolant", GTModHandler.getIC2Coolant(1), 10_000);
         addCoolant("super coolant", Materials.SuperCoolant.getFluid(1), 1_000);
-        addCoolant("liquid helium", fluidFromCell(LIQUID_HELIUM_ITEM_ID, LIQUID_HELIUM_META, 1), 100);
+        // The two coolants that are not plain GregTech fluids are looked up by the name of the cell that holds them,
+        // because a numerical item id is handed out at runtime and would point at something else in another pack.
+        addCoolant("liquid helium", fluidByContainerName(LIQUID_HELIUM_NAMES, 1), 100);
+    }
+
+    /** Display names the liquid helium cell goes by; the first is the one the design document shows. */
+    private static final String[] LIQUID_HELIUM_NAMES = { "液氦cell", "液氦 Cell", "液氦单元", "Liquid Helium Cell" };
+
+    /** Display names the concentrated primordial stellar plasma mixture cell goes by. */
+    private static final String[] STELLAR_PLASMA_NAMES = { "浓缩原始恒星等离子体混合物cell", "浓缩原始恒星等离子体混合物 Cell", "浓缩原始恒星等离子体混合物单元",
+        "Concentrated Primordial Stellar Plasma Mixture Cell" };
+
+    /**
+     * Finds the fluid of a filled container by the name that container is shown under.
+     * <p>
+     * The design document names these fluids by cell, and the cells are not always in Forge's container registry under
+     * a lookup that takes an item id, so the whole registry is walked instead and the display names are compared. That
+     * also means the lookup survives a pack that hands out different ids. Colour codes are stripped from the names
+     * before comparing, since the cells are coloured.
+     */
+    private static FluidStack fluidByContainerName(String[] candidates, int amount) {
+        for (String candidate : candidates) {
+            for (FluidContainerRegistry.FluidContainerData data : FluidContainerRegistry
+                .getRegisteredFluidContainerData()) {
+                if (data == null || data.filledContainer == null || data.fluid == null) continue;
+                String display = withoutColours(data.filledContainer.getDisplayName());
+                if (display.equalsIgnoreCase(candidate)) {
+                    FluidStack found = data.fluid.copy();
+                    found.amount = amount;
+                    MyMod.LOG.info("Resolved '{}' to {} through its container", display, found.getUnlocalizedName());
+                    return found;
+                }
+            }
+        }
+        MyMod.LOG.error(
+            "None of the containers {} is registered; that fluid cannot be used",
+            String.join(" / ", candidates));
+        return null;
+    }
+
+    private static String withoutColours(String text) {
+        return text == null ? null
+            : text.replaceAll("\u00a7.", "")
+                .trim();
     }
 
     private static void addCoolant(String name, FluidStack fluid, int amount) {
