@@ -62,11 +62,6 @@ simplification.tooltip.transcendentCatalystMaker.16=输出仓 / 输出总线 / �
 simplification.tooltip.transcendentCatalystMaker.17=并行数量可在 GUI 中手动调整（1× 到 64×）
 
 # 超维度催化剂流体（键名取自启动日志里 Werkstoff 实测的 language key）
-Material.dimensionallytranscendentcrudecatalyst=激发的粗制超维度催化剂
-Material.dimensionallytranscendentmundanecatalyst=激发的平凡超维度催化剂
-Material.dimensionallytranscendentradiantcatalyst=激发的光辉超维度催化剂
-Material.dimensionallytranscendentaliencatalyst=激发的异星超维度催化剂
-Material.dimensionallytranscendentstellarcatalyst=激发的恒星超维度催化剂
 
 # 物品：初步研究的超维度催化剂制造机（装配线配方的研究物品）
 item.simplification.preliminaryCatalystMaker.name=初步研究的超维度催化剂制造机

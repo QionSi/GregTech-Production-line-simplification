@@ -12,7 +12,6 @@ import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
 import com.qionsi.simplification.MyMod;
-import com.qionsi.simplification.material.ModMaterials;
 
 import bartworks.system.material.Werkstoff;
 import bartworks.system.material.WerkstoffLoader;
@@ -96,7 +95,7 @@ public final class TranscendentCatalystRecipes {
             .circuit(1)
             .itemInputs(dust(Materials.Iron, 7), dust(Materials.Calcium, 7), dust(Materials.Niobium, 7))
             .fluidInputs(Materials.Helium.getGas(1000))
-            .fluidOutputs(fluid(ModMaterials.DimensionallyTranscendentCrudeCatalyst, 1000))
+            .fluidOutputs(Materials.ExcitedDTCC.getFluid(1000))
             .duration(5 * SECONDS)
             .eut(285149830L)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
@@ -112,7 +111,7 @@ public final class TranscendentCatalystRecipes {
                 dust(Materials.Boron, 7),
                 dust(Materials.Sulfur, 7))
             .fluidInputs(Materials.Helium.getGas(1000), Materials.Radon.getGas(1000))
-            .fluidOutputs(fluid(ModMaterials.DimensionallyTranscendentMundaneCatalyst, 1000))
+            .fluidOutputs(Materials.ExcitedDTPC.getFluid(1000))
             .duration(5 * SECONDS)
             .eut(1327684600L)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
@@ -131,7 +130,7 @@ public final class TranscendentCatalystRecipes {
                 dust(Materials.Silver, 7),
                 dust(Materials.Titanium, 7))
             .fluidInputs(Materials.Helium.getGas(1000), Materials.Radon.getGas(1000), Materials.Nitrogen.getGas(1000))
-            .fluidOutputs(fluid(ModMaterials.DimensionallyTranscendentRadiantCatalyst, 1000))
+            .fluidOutputs(Materials.ExcitedDTRC.getFluid(1000))
             .duration(5 * SECONDS)
             .eut(5293264510L)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
@@ -157,7 +156,7 @@ public final class TranscendentCatalystRecipes {
                 Materials.Radon.getGas(1000),
                 Materials.Nitrogen.getGas(1000),
                 Materials.Oxygen.getGas(1000))
-            .fluidOutputs(fluid(ModMaterials.DimensionallyTranscendentAlienCatalyst, 1000))
+            .fluidOutputs(Materials.ExcitedDTEC.getFluid(1000))
             .duration(5 * SECONDS)
             .eut(20730073930L)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
@@ -194,7 +193,7 @@ public final class TranscendentCatalystRecipes {
                     Materials.Nitrogen.getGas(1000),
                     Materials.Oxygen.getGas(1000),
                     stellarPlasma)
-                .fluidOutputs(fluid(ModMaterials.DimensionallyTranscendentStellarCatalyst, 1000))
+                .fluidOutputs(Materials.ExcitedDTSC.getFluid(1000))
                 .duration(10 * SECONDS)
                 .eut(21383837600L)
                 .addTo(ModRecipeMaps.transcendentCatalystRecipes);

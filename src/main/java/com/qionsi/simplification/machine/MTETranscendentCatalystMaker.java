@@ -19,13 +19,17 @@ import java.util.List;
 
 import javax.annotation.Nonnull;
 
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
+import com.dreammaster.block.BlockList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
+import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
@@ -34,7 +38,6 @@ import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
 import com.qionsi.simplification.recipe.TranscendentCatalystRecipes.Coolant;
 
-import cpw.mods.fml.common.registry.GameRegistry;
 import gregtech.api.casing.Casings;
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.ITexture;
@@ -201,9 +204,10 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                         .casingIndex(Casings.DimensionalBridge.getTextureId())
                         .hint(3)
                         .buildAndChain(Casings.DimensionalBridge.asElement()))
-                // 黑钚块 comes from New Horizons Core Mod, which registers its blocks during its own pre-init, so it is
-                // looked up lazily at the first structure check instead of here.
-                .addElement('D', lazy(t -> ofBlock(GameRegistry.findBlock("dreamcraft", "blockBlackPlutonium"), 0)))
+                // 黑钚块 comes from New Horizons Core Mod, which only fills its block list during its own pre-init, so
+                // it is resolved when the structure is first walked. Handing StructureLib a null block here used to
+                // crash the NEI structure preview, so the fallback is a real block plus a loud log line.
+                .addElement('D', lazy(t -> blackPlutoniumElement()))
                 .addElement('E', ofFrame(Materials.Neutronium))
                 .addElement('F', Casings.SuperconductingCoilBlock.asElement())
                 .build();
@@ -216,6 +220,35 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                 .addShape(STRUCTURE_PIECE_MAIN, new String[][] { { "~" } })
                 .build();
         }
+    }
+
+    /**
+     * The structure element for the {@code D} positions: the black plutonium block of New Horizons Core Mod.
+     * <p>
+     * That mod keeps its blocks in the {@link BlockList} enum and only fills the entries in during its own pre-init, so
+     * the lookup happens here, at the first walk of the structure, rather than while this class is being loaded. A null
+     * block would make StructureLib throw while the NEI preview builds the machine - which is exactly what it used to
+     * do - so a block that could not be resolved falls back to a real one and says so in the log.
+     */
+    private static IStructureElement<MTETranscendentCatalystMaker> blackPlutoniumElement() {
+        ItemStack stack = null;
+        try {
+            stack = BlockList.BlackPlutonium.get();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not read the black plutonium block out of New Horizons Core Mod", t);
+        }
+        if (stack == null || stack.getItem() == null) {
+            MyMod.LOG.error(
+                "The black plutonium block was not found; the D positions of the Transcendent Catalyst Maker accept "
+                    + "iron blocks instead until that is fixed.");
+            return ofBlock(Blocks.iron_block, 0);
+        }
+        Block block = Block.getBlockFromItem(stack.getItem());
+        MyMod.LOG.info(
+            "Transcendent Catalyst Maker: the D positions are bound to {} (metadata {})",
+            stack.getDisplayName(),
+            stack.getItemDamage());
+        return ofBlock(block, stack.getItemDamage());
     }
 
     @Override

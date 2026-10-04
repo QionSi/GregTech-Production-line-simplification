@@ -1,7 +1,6 @@
 package com.qionsi.simplification;
 
 import com.qionsi.simplification.item.ModItems;
-import com.qionsi.simplification.material.ModMaterials;
 
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -24,10 +23,6 @@ public class CommonProxy {
 
         // The bauble and its event handler are independent of GregTech, but they belong to the same pre-init.
         ModItems.register();
-
-        // The five catalyst fluids have to be handed to Bartworks before it runs its werkstoff adders, which happens
-        // during its own init phase.
-        ModMaterials.register();
     }
 
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
@@ -38,9 +33,6 @@ public class CommonProxy {
         // The recipe waits until here so that GregTech has already filed its wire cutters in the ore dictionary.
         ModItems.registerRecipes();
         ModItems.logRegistration();
-
-        // By now Bartworks has created the fluids and cells of the catalysts, so what was registered can be checked.
-        ModMaterials.logRegistration();
     }
 
     // register server commands in this event handler (Remove if not needed)

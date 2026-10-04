@@ -13,9 +13,7 @@ import net.minecraftforge.fluids.FluidStack;
 
 import com.qionsi.simplification.MyMod;
 import com.qionsi.simplification.item.ModItems;
-import com.qionsi.simplification.material.ModMaterials;
 
-import bartworks.system.material.Werkstoff;
 import bartworks.system.material.WerkstoffLoader;
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.ItemList;
@@ -201,26 +199,10 @@ public final class TranscendentCatalystAssemblyLine {
         // GTRecipeBuilder.fluidInputs replaces whatever was there before rather than appending to it.
         List<FluidStack> catalysts = new ArrayList<>();
         boolean fluidsComplete = true;
-        fluidsComplete &= addFluid(
-            catalysts,
-            ModMaterials.DimensionallyTranscendentCrudeCatalyst,
-            CRUDE_AMOUNT,
-            "激发的粗制超维度催化剂");
-        fluidsComplete &= addFluid(
-            catalysts,
-            ModMaterials.DimensionallyTranscendentMundaneCatalyst,
-            MUNDANE_AMOUNT,
-            "激发的平凡超维度催化剂");
-        fluidsComplete &= addFluid(
-            catalysts,
-            ModMaterials.DimensionallyTranscendentRadiantCatalyst,
-            RADIANT_AMOUNT,
-            "激发的光辉超维度催化剂");
-        fluidsComplete &= addFluid(
-            catalysts,
-            ModMaterials.DimensionallyTranscendentAlienCatalyst,
-            ALIEN_AMOUNT,
-            "激发的异星超维度催化剂");
+        fluidsComplete &= addFluid(catalysts, Materials.ExcitedDTCC, CRUDE_AMOUNT, "激发的粗制超维度催化剂");
+        fluidsComplete &= addFluid(catalysts, Materials.ExcitedDTPC, MUNDANE_AMOUNT, "激发的平凡超维度催化剂");
+        fluidsComplete &= addFluid(catalysts, Materials.ExcitedDTRC, RADIANT_AMOUNT, "激发的光辉超维度催化剂");
+        fluidsComplete &= addFluid(catalysts, Materials.ExcitedDTEC, ALIEN_AMOUNT, "激发的异星超维度催化剂");
         if (!fluidsComplete) {
             MyMod.LOG.error(
                 "The assembly line recipe of the Preliminary Study: Transcendent Catalyst Maker is NOT registered; "
@@ -258,18 +240,21 @@ public final class TranscendentCatalystAssemblyLine {
             SCAN_VOLTAGE);
     }
 
-    /** Adds one catalyst fluid to the list, and reports it when the werkstoff has no fluid yet. */
-    private static boolean addFluid(List<FluidStack> catalysts, Werkstoff werkstoff, int amount, String chineseName) {
-        if (werkstoff == null) {
-            MyMod.LOG.error("The catalyst werkstoff {} was never created", chineseName);
+    /**
+     * Adds one catalyst fluid to the list. These are GregTech's own dimensionally transcendent catalysts, the same five
+     * the Dimensionally Transcendent Plasma Forge runs on, in their excited form.
+     */
+    private static boolean addFluid(List<FluidStack> catalysts, Materials material, int amount, String chineseName) {
+        if (material == null) {
+            MyMod.LOG.error("The catalyst material {} does not exist", chineseName);
             return false;
         }
-        FluidStack fluid = werkstoff.getFluidOrGas(amount);
+        FluidStack fluid = material.getFluid(amount);
         if (fluid == null) {
             MyMod.LOG.error(
                 "The catalyst {} ({}) has no fluid, so the assembly line recipe cannot take it",
                 chineseName,
-                werkstoff.getInternalName());
+                material.mName);
             return false;
         }
         catalysts.add(fluid);
