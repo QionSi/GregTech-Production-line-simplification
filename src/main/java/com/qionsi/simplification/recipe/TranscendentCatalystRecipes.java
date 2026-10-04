@@ -130,8 +130,9 @@ public final class TranscendentCatalystRecipes {
             .eut(mundane.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
-        // 3: the radiant catalyst, circuit 3. From here on the document's voltage no longer fits in an int.
-        RecipePower radiant = power("光辉超维度催化剂 / radiant", 5_293_264_510L, 5 * SECONDS);
+        // 3: the radiant catalyst, circuit 3. The requested voltage fits in an int, so it is used as it is and only the
+        // duration is the one the user asked for.
+        RecipePower radiant = power("光辉超维度催化剂 / radiant", 1_627_684_600L, 5 * SECONDS, 5 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(3)
             .itemInputs(
