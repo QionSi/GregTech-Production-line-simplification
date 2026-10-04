@@ -6,6 +6,7 @@ import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
 import com.qionsi.simplification.recipe.RareEarthRecipes;
+import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
 
 import gregtech.api.GregTechAPI;
 
@@ -72,6 +73,13 @@ public final class ModContent {
             RareEarthRecipes.init();
         } catch (Throwable t) {
             MyMod.LOG.error("Could not register the Rare Earth recipes; the machine will have none.", t);
+        }
+
+        try {
+            TranscendentCatalystRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG
+                .error("Could not register the Transcendent Catalyst Maker recipes; the machine will have none.", t);
         }
         return true;
     }

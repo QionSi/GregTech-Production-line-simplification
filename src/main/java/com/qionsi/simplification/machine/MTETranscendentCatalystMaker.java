@@ -22,6 +22,7 @@ import javax.annotation.Nonnull;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.FluidStack;
 
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -30,6 +31,8 @@ import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.qionsi.simplification.MyMod;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
+import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
+import com.qionsi.simplification.recipe.TranscendentCatalystRecipes.Coolant;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import gregtech.api.casing.Casings;
@@ -39,12 +42,16 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
+import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEWirelessEnergy;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
+import gregtech.api.recipe.check.CheckRecipeResult;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
+import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
@@ -277,6 +284,38 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     @Override
     public int getMaxParallelRecipes() {
         return 1 << machineMode;
+    }
+
+    /**
+     * Runs the recipe, but only after one of the coolants has been picked at random and found to be available.
+     * <p>
+     * The coolants are not part of any recipe: the machine burns one of the four per run, and which one is decided when
+     * the run starts. It is consumed from the input hatches on the dimensional bridges. If it is not there in the
+     * amount
+     * the recipe needs, the run does not start at all and the recipe's own inputs are left alone.
+     */
+    @Override
+    public CheckRecipeResult checkProcessing() {
+        Coolant coolant = TranscendentCatalystRecipes.pickCoolant();
+        if (coolant == null) return super.checkProcessing();
+
+        FluidStack wanted = coolant.fluid.copy();
+        wanted.amount = coolant.amount * Math.max(1, getTrueParallel());
+        if (!hasCoolant(wanted)) return CheckRecipeResultRegistry.NO_RECIPE;
+
+        CheckRecipeResult result = super.checkProcessing();
+        if (result.wasSuccessful()) depleteInput(wanted);
+        return result;
+    }
+
+    /** True when the input hatches together hold at least this much of the fluid. */
+    private boolean hasCoolant(FluidStack wanted) {
+        int found = 0;
+        for (MTEHatchInput hatch : mInputHatches) {
+            FluidStack inHatch = hatch.getFluid();
+            if (inHatch != null && GTUtility.areFluidsEqual(inHatch, wanted)) found += inHatch.amount;
+        }
+        return found >= wanted.amount;
     }
 
     @Override
