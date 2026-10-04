@@ -2,6 +2,7 @@ package com.qionsi.simplification;
 
 import com.qionsi.simplification.machine.MTEPetrochemicalComplex;
 import com.qionsi.simplification.machine.MTERareEarthComplex;
+import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
 import com.qionsi.simplification.recipe.RareEarthRecipes;
@@ -46,6 +47,14 @@ public final class ModContent {
             "MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER",
             () -> {});
 
+        // Everything the Transcendent Catalyst Maker is built from comes from GregTech itself, so its blueprint can be
+        // checked right here.
+        registerMachine(
+            MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER,
+            "the Transcendent Catalyst Maker",
+            "MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER",
+            MTETranscendentCatalystMaker::prepareStructure);
+
         try {
             ModRecipes.init();
             MyMod.LOG.info(
@@ -78,8 +87,13 @@ public final class ModContent {
         try {
             if (id == MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER) {
                 new MTEPetrochemicalComplex(id, "multimachine.petrochemicalcomplex", "Petrochemical Complex");
-            } else {
+            } else if (id == MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER) {
                 new MTERareEarthComplex(id, "multimachine.rareearthcomplex", "Rare Earth Processing Complex");
+            } else {
+                new MTETranscendentCatalystMaker(
+                    id,
+                    "multimachine.transcendentcatalystmaker",
+                    "Transcendent Catalyst Maker");
             }
         } catch (Throwable t) {
             // A class initialiser failure here is almost always an id clash with another addon. Report it and carry on

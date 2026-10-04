@@ -32,3 +32,33 @@ simplification.tooltip.nascentWhiteBranch.effect.4=神诞生的馈赠：赋予�
 simplification.tooltip.nascentWhiteBranch.effect.5=白草净华之息：赋予佩戴者持续的增益Buff并持续消除佩戴者的所有DeBuff
 simplification.tooltip.nascentWhiteBranch.effect.6=花神之舞的回响：赋予佩戴者死亡不掉落的效果
 simplification.tooltip.nascentWhiteBranch.effect.7=比量现行之翼：赋予佩戴者创造飞行的效果
+
+# Transcendent Catalyst Maker
+gt.blockmachines.multimachine.transcendentcatalystmaker.name=Transcendent Catalyst Maker
+simplification.recipe.transcendent_catalyst=Transcendent Catalyst Maker
+simplification.transcendent_catalyst_maker.parallel.0=Parallel 1x
+simplification.transcendent_catalyst_maker.parallel.1=Parallel 2x
+simplification.transcendent_catalyst_maker.parallel.2=Parallel 4x
+simplification.transcendent_catalyst_maker.parallel.3=Parallel 8x
+simplification.transcendent_catalyst_maker.parallel.4=Parallel 16x
+simplification.transcendent_catalyst_maker.parallel.5=Parallel 32x
+simplification.transcendent_catalyst_maker.parallel.6=Parallel 64x
+simplification.structure.error.wireless_energy_only=This machine runs off the wireless network only: the energy hatch has to be a wireless one
+# The machine description below is kept in Chinese on purpose: the wording comes from the design document.
+simplification.tooltip.transcendentCatalystMaker.1=通过超导线圈加热物品使其液化为等离子体，同时将其搅拌成催化剂
+simplification.tooltip.transcendentCatalystMaker.2=配方电压等级不受能源仓电压限制
+simplification.tooltip.transcendentCatalystMaker.3=机器运行时会随机消耗以下冷却介质
+simplification.tooltip.transcendentCatalystMaker.4=液体空气、冷却液、超级冷却液、液氦
+simplification.tooltip.transcendentCatalystMaker.5=若冷却介质不足则会导致配方合成失败
+simplification.tooltip.transcendentCatalystMaker.6=冷却介质消耗速度如下：
+simplification.tooltip.transcendentCatalystMaker.7=液态空气：100k/1kl 催化剂
+simplification.tooltip.transcendentCatalystMaker.8=冷却液：10k/1kl 催化剂
+simplification.tooltip.transcendentCatalystMaker.9=超级冷却液：1k/1kl 催化剂
+simplification.tooltip.transcendentCatalystMaker.10=液氦：100l/1kl 催化剂
+simplification.tooltip.transcendentCatalystMaker.11=该机器只能从无线电网直接获取能源
+simplification.tooltip.transcendentCatalystMaker.12=能源仓：任意超维度机械方块（仅限无线能源仓）
+simplification.tooltip.transcendentCatalystMaker.13=输入仓（配方流体）：任意维度注入机械方块
+simplification.tooltip.transcendentCatalystMaker.14=输入仓（冷却介质）：任意维度桥接方块
+simplification.tooltip.transcendentCatalystMaker.15=维护仓：任意维度注入机械方块
+simplification.tooltip.transcendentCatalystMaker.16=输出仓 / 输出总线 / 输入总线：任意超维度机械方块
+simplification.tooltip.transcendentCatalystMaker.17=并行数量可在 GUI 中手动调整（1× 到 64×）

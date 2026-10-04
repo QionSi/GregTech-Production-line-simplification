@@ -20,5 +20,10 @@ public final class MetaTileIDs {
      */
     public static final int RARE_EARTH_COMPLEX_CONTROLLER = 32701;
 
+    /**
+     * 超维度催化剂制造机 / Transcendent Catalyst Maker controller.
+     */
+    public static final int TRANSCENDENT_CATALYST_MAKER_CONTROLLER = 32702;
+
     private MetaTileIDs() {}
 }

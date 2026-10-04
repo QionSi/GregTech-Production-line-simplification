@@ -69,5 +69,21 @@ public final class ModRecipeMaps {
         .frontend(LargeNEIFrontend::new)
         .build();
 
+    /**
+     * 超维度催化剂制造机配方池 / Transcendent Catalyst Maker recipe pool.
+     * <p>
+     * The widest recipe takes fifteen dusts and four gases and gives a single fluid back, so the page is sized for a
+     * little more than that: eighteen item inputs, six fluid inputs, two item outputs and two fluid outputs. These
+     * numbers only describe the NEI and GUI layout and do not restrict what a recipe may declare.
+     */
+    public static final RecipeMap<RecipeMapBackend> transcendentCatalystRecipes = RecipeMapBuilder
+        .of("simplification.recipe.transcendent_catalyst")
+        .maxIO(18, 6, 2, 2)
+        .minInputs(0, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
     private ModRecipeMaps() {}
 }
