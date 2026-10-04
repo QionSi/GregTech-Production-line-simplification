@@ -35,8 +35,11 @@ import gregtech.api.util.GTUtility;
  * One number the document gives cannot be stored: GregTech keeps a recipe's voltage in an {@code int}, and the last
  * three catalysts are 5,293,264,510 / 20,730,073,930 / 21,383,837,600 EU/t. Those three are fitted in by
  * {@link #power},
- * which caps the voltage and stretches the duration so that the total energy stays what the document says, and writes
- * both numbers into the log.
+ * which caps the voltage at {@link Integer#MAX_VALUE}. The radiant catalyst then keeps the document's total energy by
+ * stretching its duration, while the alien and the stellar catalyst stay at that capped voltage and take the duration
+ * the user asked for instead - 10 s for the alien and 5 s for the stellar, which is the opposite way round from the
+ * document - so for those two the total energy deliberately no longer matches the document. The final numbers are
+ * written into the log.
  */
 public final class TranscendentCatalystRecipes {
 
@@ -147,8 +150,9 @@ public final class TranscendentCatalystRecipes {
             .eut(radiant.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
-        // 4: the alien catalyst, circuit 4.
-        RecipePower alien = power("异星超维度催化剂 / alien", 20_730_073_930L, 5 * SECONDS);
+        // 4: the alien catalyst, circuit 4. The document's voltage does not fit in an int, so it is capped; the user
+        // asked for a fixed duration of ten seconds instead of the document's five, so the total energy is not kept.
+        RecipePower alien = power("异星超维度催化剂 / alien", 20_730_073_930L, 5 * SECONDS, 10 * SECONDS);
         GTRecipeBuilder.builder()
             .circuit(4)
             .itemInputs(
@@ -174,15 +178,17 @@ public final class TranscendentCatalystRecipes {
             .eut(alien.eut)
             .addTo(ModRecipeMaps.transcendentCatalystRecipes);
 
-        // 5: the stellar catalyst, circuit 5, ten seconds. Its last ingredient is the concentrated primordial stellar
-        // plasma mixture, which the player knows as a filled cell.
+        // 5: the stellar catalyst, circuit 5. The document's voltage does not fit in an int either, so it is capped;
+        // the
+        // user asked for a fixed duration of five seconds instead of the document's ten. Its last ingredient is the
+        // concentrated primordial stellar plasma mixture, which the player knows as a filled cell.
         FluidStack stellarPlasma = fluidByContainerName(STELLAR_PLASMA_NAMES, 25);
         if (stellarPlasma == null) {
             MyMod.LOG.error(
                 "Could not find the concentrated primordial stellar plasma mixture; the stellar catalyst recipe is not "
                     + "registered.");
         } else {
-            RecipePower stellar = power("恒星超维度催化剂 / stellar", 21_383_837_600L, 10 * SECONDS);
+            RecipePower stellar = power("恒星超维度催化剂 / stellar", 21_383_837_600L, 10 * SECONDS, 5 * SECONDS);
             GTRecipeBuilder.builder()
                 .circuit(5)
                 .itemInputs(
@@ -239,6 +245,19 @@ public final class TranscendentCatalystRecipes {
     }
 
     /**
+     * Marks a recipe whose duration is not fixed by the user: it keeps the document's, stretched to keep the energy.
+     */
+    private static final int KEEP_DOCUMENTED_DURATION = -1;
+
+    /**
+     * Fits the document's voltage into the {@code int} GregTech stores and keeps the document's duration, stretched by
+     * the same factor as the voltage was capped by.
+     */
+    private static RecipePower power(String name, long documentedEUt, int documentedDuration) {
+        return power(name, documentedEUt, documentedDuration, KEEP_DOCUMENTED_DURATION);
+    }
+
+    /**
      * The largest EU/t a recipe can carry, which is what {@link GTRecipe#mEUt} can hold.
      * <p>
      * {@code GTRecipe.mEUt} is an {@code int}, and {@link GTRecipeBuilder#eut(long)} narrows its argument to an
@@ -247,14 +266,59 @@ public final class TranscendentCatalystRecipes {
      * catalysts are above this ceiling in the design document - 5,293,264,510 / 20,730,073,930 / 21,383,837,600 EU/t -
      * which is exactly why those three used to show up without a voltage, a power draw or a duration at all.
      * <p>
-     * The total energy the document asks for is kept: the voltage is capped and the duration is stretched by the same
-     * factor, so {@code eut * duration} is what the document specifies. A recipe at or below the ceiling is left
-     * completely alone. Every decision is written into the log with both the document's number and the one that was
-     * used.
+     * The voltage is always capped at {@link Integer#MAX_VALUE} when the document asks for more. What happens to the
+     * duration then depends on {@code userDuration}:
+     * <ul>
+     * <li>With {@link #KEEP_DOCUMENTED_DURATION} - which is what the radiant catalyst uses - the total energy the
+     * document asks for is kept: the duration is stretched by the same factor the voltage was cut by, so {@code eut *
+     * duration} is what the document specifies.</li>
+     * <li>With a duration the user named - which is what the alien and the stellar catalyst use, 10 s and 5 s - that
+     * duration is used as it is and the document's total energy is deliberately abandoned, because the user asked for
+     * those two durations by name.</li>
+     * </ul>
+     * A recipe at or below the ceiling is left completely alone. Every decision is written into the log with both the
+     * document's number and the one that was used.
+     *
+     * @param userDuration the duration to use, in ticks, or {@link #KEEP_DOCUMENTED_DURATION} to stretch the
+     *                     document's duration instead so that its total energy stays the same.
      */
-    private static RecipePower power(String name, long documentedEUt, int documentedDuration) {
+    private static RecipePower power(String name, long documentedEUt, int documentedDuration, int userDuration) {
         long totalEU = documentedEUt * documentedDuration;
         int eut = (int) Math.min(documentedEUt, (long) Integer.MAX_VALUE);
+        if (eut < documentedEUt && userDuration != KEEP_DOCUMENTED_DURATION) {
+            MyMod.LOG.warn(
+                "Recipe '{}': the document asks for {} EU/t for {} ticks ({} EU in total), but GTRecipe.mEUt is an int "
+                    + "and {} exceeds Integer.MAX_VALUE = {}. The voltage is capped at {} EU/t and stays there, because "
+                    + "the user specified the duration of this recipe as {} ticks ({} s) - the document's duration of "
+                    + "{} ticks is therefore not used, and the document's total of {} EU is deliberately not preserved. "
+                    + "The recipe is registered at {} EU/t for {} ticks ({} EU in total).",
+                name,
+                documentedEUt,
+                documentedDuration,
+                totalEU,
+                documentedEUt,
+                Integer.MAX_VALUE,
+                eut,
+                userDuration,
+                userDuration / SECONDS,
+                documentedDuration,
+                totalEU,
+                eut,
+                userDuration,
+                (long) eut * userDuration);
+            return new RecipePower(eut, userDuration);
+        }
+        if (userDuration != KEEP_DOCUMENTED_DURATION) {
+            // Below the ceiling: the document's own voltage is used, only the user's duration replaces the document's.
+            MyMod.LOG.info(
+                "Recipe '{}': {} EU/t; below Integer.MAX_VALUE, so the document's own voltage is used unchanged. The "
+                    + "user specified the duration of this recipe as {} ticks ({} s).",
+                name,
+                documentedEUt,
+                userDuration,
+                userDuration / SECONDS);
+            return new RecipePower(eut, userDuration);
+        }
         int duration = (int) Math.min(Integer.MAX_VALUE, (totalEU + eut - 1) / eut);
         if (eut < documentedEUt) {
             MyMod.LOG.warn(
