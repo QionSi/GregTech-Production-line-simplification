@@ -211,16 +211,26 @@ public final class TranscendentCatalystAssemblyLine {
         }
         builder.fluidInputs(catalysts.toArray(new FluidStack[0]));
 
-        // 3600 seconds at 33,554,432 EU/t, with the research data the Research Station scans.
-        builder.itemOutputs(researchItem)
+        // The recipe builds the controller of the machine itself. The scanned item is only what the assembly line reads
+        // the recipe out of, which is what RESEARCH_ITEM above tells GregTech: the player scans the Preliminary Study
+        // item at the Research Station and puts the resulting flash memory into the assembly line's data bank.
+        ItemStack controller = controllerStack();
+        if (controller == null) {
+            MyMod.LOG.error(
+                "The controller of the Transcendent Catalyst Maker is not registered, so its assembly line recipe is "
+                    + "not registered either.");
+            return;
+        }
+        builder.itemOutputs(controller)
             .duration(RECIPE_DURATION)
             .eut(RECIPE_EUT)
             .addTo(AssemblyLine);
 
         MyMod.LOG.info(
-            "Registered the assembly line recipe of the Preliminary Study: Transcendent Catalyst Maker (order: "
+            "Registered the assembly line recipe of the Transcendent Catalyst Maker controller (output: {}; order: "
                 + "64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {}, with {} / {} / {} / {} "
                 + "mB of the four catalysts, {} EU/t for {} ticks, research item '{}', scanning {} ticks at {} EU/t)",
+            describe(controller),
             describe(megaBlastFurnace),
             describe(megaVacuumFreezer),
             describe(megaAlloyBlastSmelter),
@@ -238,6 +248,17 @@ public final class TranscendentCatalystAssemblyLine {
             describe(researchItem),
             SCAN_TIME,
             SCAN_VOLTAGE);
+    }
+
+    /**
+     * The controller this recipe builds.
+     * <p>
+     * This mod's own machine is registered as a MetaTileEntity, so its item is whatever that registration hands out and
+     * is read from the registry rather than built here.
+     */
+    private static ItemStack controllerStack() {
+        gregtech.api.interfaces.metatileentity.IMetaTileEntity controller = GregTechAPI.METATILEENTITIES[com.qionsi.simplification.MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER];
+        return controller == null ? null : controller.getStackForm(1);
     }
 
     /**
