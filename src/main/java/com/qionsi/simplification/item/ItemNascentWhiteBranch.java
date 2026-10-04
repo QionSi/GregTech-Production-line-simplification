@@ -69,7 +69,7 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
     public static final int FOOD = 40;
 
     /** Temporary warp the wearer is pinned to; the other two warps are pinned to zero. */
-    public static final int WARP_TEMP = 50;
+    public static final int WARP_TEMP = 30;
 
     private static final UUID HEALTH_MODIFIER_ID = UUID.fromString("3d1c8a52-6f47-4c1e-9b2e-5a7c4f0d8b31");
     private static final String HEALTH_MODIFIER_NAME = "Nascent White Branch";
