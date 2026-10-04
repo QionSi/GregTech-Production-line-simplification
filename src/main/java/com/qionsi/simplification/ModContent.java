@@ -6,6 +6,7 @@ import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
 import com.qionsi.simplification.recipe.RareEarthRecipes;
+import com.qionsi.simplification.recipe.TranscendentCatalystAssemblyLine;
 import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
 
 import gregtech.api.GregTechAPI;
@@ -80,6 +81,16 @@ public final class ModContent {
         } catch (Throwable t) {
             MyMod.LOG
                 .error("Could not register the Transcendent Catalyst Maker recipes; the machine will have none.", t);
+        }
+
+        // The assembly line recipe of the 初步研究的超维度催化剂制造机 needs the same Bartworks catalyst fluids as the
+        // catalyst maker, so it defers its work in exactly the same way; a failure here leaves the item and its
+        // assembler recipe untouched.
+        try {
+            TranscendentCatalystAssemblyLine.init();
+        } catch (Throwable t) {
+            MyMod.LOG
+                .error("Could not register the Preliminary Study assembly line recipe; the recipe will be missing.", t);
         }
         return true;
     }
