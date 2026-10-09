@@ -3,7 +3,6 @@ package com.qionsi.simplification.machine;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.lazy;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlock;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
-import static gregtech.api.enums.HatchElement.Energy;
 import static gregtech.api.enums.HatchElement.InputBus;
 import static gregtech.api.enums.HatchElement.InputHatch;
 import static gregtech.api.enums.HatchElement.Maintenance;
@@ -14,8 +13,15 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_DTPF_ON;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FUSION1_GLOW;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
+import static gregtech.common.misc.WirelessNetworkManager.addEUToGlobalEnergyMap;
+import static gregtech.common.misc.WirelessNetworkManager.getUserEU;
+import static gregtech.common.misc.WirelessNetworkManager.processInitialSettings;
 
+import java.math.BigInteger;
 import java.util.List;
+import java.util.UUID;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
@@ -42,18 +48,18 @@ import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
-import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
-import gregtech.api.metatileentity.implementations.MTEWirelessEnergy;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.structure.error.StructureErrors;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.OverclockCalculator;
 
 /**
  * 超维度催化剂制造机 / Transcendent Catalyst Maker.
@@ -67,8 +73,9 @@ import gregtech.api.util.MultiblockTooltipBuilder;
  * <h2>What is special about it</h2>
  *
  * <ul>
- * <li>It draws power from the wireless network only: an ordinary energy hatch, a multi amp hatch or a laser target
- * hatch is refused while the structure is being checked, and the player is told why.</li>
+ * <li>It takes its power straight out of the player's wireless network, exactly as GregTech's own Transcendent Plasma
+ * Mixer ({@code MTETranscendentPlasmaMixer}) does: no energy hatch is needed, none is accepted, and the whole run is
+ * paid for in one go when the recipe starts. A run whose cost the balance cannot cover does not start.</li>
  * <li>The number of parallels is typed into the machine's power panel rather than derived from the hatches: any whole
  * number from {@value #MIN_PARALLEL} to {@value #MAX_PARALLEL}, {@value #MIN_PARALLEL} until the player says otherwise,
  * and kept with the machine.</li>
@@ -145,6 +152,20 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     /** How many dimensional injection casings the last structure check found. */
     private int injectionCasings;
 
+    /**
+     * The player whose wireless network pays for the runs, worked out on the machine's first tick after it is placed
+     * or loaded, exactly as {@code MTETranscendentPlasmaMixer} does it. GTNH books the network by player UUID (or, in
+     * a team, by the team leader's).
+     */
+    private UUID ownerUUID;
+
+    /**
+     * The energy the last run was charged to the wireless network, negative because it was taken away, or zero when
+     * nothing has been charged. Kept the way the mixer keeps it, on the machine rather than in the recipe logic, so it
+     * survives from one recipe check to the next.
+     */
+    private BigInteger finalConsumption = BigInteger.ZERO;
+
     public MTETranscendentCatalystMaker(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
         startAtOneParallel();
@@ -216,6 +237,35 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     }
 
     /**
+     * Adds the owner to the wireless network on the machine's first tick, exactly as {@code MTETranscendentPlasmaMixer}
+     * does, and remembers whose balance pays for the runs.
+     */
+    @Override
+    public void onPreTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
+        super.onPreTick(aBaseMetaTileEntity, aTick);
+        if (aBaseMetaTileEntity.isServerSide() && (aTick == 1)) {
+            ownerUUID = processInitialSettings(aBaseMetaTileEntity);
+        }
+    }
+
+    /**
+     * The wireless network account this machine spends from.
+     * <p>
+     * The mixer fills this in on the machine's first pre-tick; the fallback here only covers the window before that
+     * first tick, so that a recipe check can never be handed a null player.
+     */
+    private UUID wirelessOwner() {
+        if (ownerUUID == null) {
+            ownerUUID = processInitialSettings(getBaseMetaTileEntity());
+            MyMod.LOG.info(
+                "Transcendent Catalyst Maker: taking power from the wireless network of {} - WirelessNetworkManager"
+                    + ".processInitialSettings()/getUserEU()/addEUToGlobalEnergyMap(), no energy hatch.",
+                ownerUUID);
+        }
+        return ownerUUID;
+    }
+
+    /**
      * Checks the blueprint against the machine's own offsets and writes what it asks for into the log. Safe to call at
      * registration; the definition itself is built later, on the first structure check.
      */
@@ -243,6 +293,14 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
             MAX_PARALLEL,
             MAX_PARALLEL,
             MIN_PARALLEL);
+        MyMod.LOG.info(
+            "Transcendent Catalyst Maker: power comes from the player's wireless network and nowhere else, the same "
+                + "way GregTech's MTETranscendentPlasmaMixer does it - the structure has no energy hatch at all. The "
+                + "account is WirelessNetworkManager.processInitialSettings(), read on the machine's first tick ("
+                + "WirelessNetworkManager.getUserEU()); a run is checked against that balance and then paid for in one "
+                + "go with WirelessNetworkManager.addEUToGlobalEnergyMap() when the recipe starts, after which "
+                + "ProcessingLogic.overwriteCalculatedEut(0) leaves nothing to drain per tick. A run the balance "
+                + "cannot cover reports insufficientStartupPower instead of starting, and no energy hatch is needed.");
     }
 
     private static IStructureDefinition<MTETranscendentCatalystMaker> getDefinition() {
@@ -262,12 +320,11 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                         .hint(1)
                         .buildAndChain(
                             onElementPass(x -> ++x.injectionCasings, Casings.DimensionalInjectionCasing.asElement())))
-                // 超维度机械方块: everything that leaves the machine plus the item buses, and the only place an energy
-                // hatch may sit.
+                // 超维度机械方块: everything that leaves the machine plus the item buses. Power comes from the
+                // wireless network, so there is no energy hatch here - not even a wireless one.
                 .addElement(
                     'B',
-                    buildHatchAdder(MTETranscendentCatalystMaker.class)
-                        .atLeast(Energy, InputBus, OutputBus, OutputHatch)
+                    buildHatchAdder(MTETranscendentCatalystMaker.class).atLeast(InputBus, OutputBus, OutputHatch)
                         .casingIndex(Casings.DimensionallyTranscendentCasing.getTextureId())
                         .hint(2)
                         .buildAndChain(
@@ -343,26 +400,6 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
         checkOneMaintenanceHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
-        checkWirelessEnergyOnly(errors);
-    }
-
-    /**
-     * Refuses every energy hatch that is not a wireless one.
-     * <p>
-     * The machine is meant to be run off the wireless network only, so an ordinary energy hatch, a multi amp hatch or a
-     * laser target hatch is a structure error rather than something that silently does nothing.
-     */
-    private void checkWirelessEnergyOnly(List<StructureError> errors) {
-        if (mEnergyHatches.isEmpty()) {
-            errors.add(StructureErrors.of("simplification.structure.error.wireless_energy_only"));
-            return;
-        }
-        for (MTEHatchEnergy hatch : mEnergyHatches) {
-            if (!(hatch instanceof MTEWirelessEnergy)) {
-                errors.add(StructureErrors.of("simplification.structure.error.wireless_energy_only"));
-                return;
-            }
-        }
     }
 
     @Override
@@ -406,6 +443,90 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
     @Override
     public int getMaxParallelRecipes() {
         return MAX_PARALLEL;
+    }
+
+    /**
+     * The recipe logic, with the power taken out of the wireless network the way GregTech's own
+     * {@code MTETranscendentPlasmaMixer} takes it.
+     * <p>
+     * The mixer's three ingredients are copied here:
+     * <ul>
+     * <li>{@code validateRecipe} asks {@code WirelessNetworkManager.getUserEU(ownerUUID)} for the balance and refuses
+     * the recipe with {@code insufficientStartupPower} when it cannot pay for the run, so the machine does not start
+     * on an empty network;</li>
+     * <li>{@code onRecipeStart} hands the whole cost of the run to
+     * {@code WirelessNetworkManager.addEUToGlobalEnergyMap(ownerUUID, cost)}, which subtracts it and returns false
+     * rather than going below zero, and then calls {@code ProcessingLogic.overwriteCalculatedEut(0)} so that the
+     * machine draws nothing per tick from any hatch - there is none;</li>
+     * <li>the overclock calculator is {@code OverclockCalculator.ofNoOverclock(recipe)}, so the recipe's own EU/t and
+     * duration are the numbers that are used and paid for.</li>
+     * </ul>
+     * One difference from the mixer: its recipes carry an {@code EU_MULTIPLIER} metadata value (ten by default), which
+     * is why it reads one; the catalyst recipes carry none and are written as "EU/t for a duration", so one parallel of
+     * one run costs {@code mEUt * mDuration} EU, and nothing is multiplied by ten.
+     * <p>
+     * The parallel count the player typed - the same number {@link #checkProcessing()} measures the coolant against -
+     * is
+     * what the balance has to cover before a run may start. The mixer instead quietly runs fewer parallels when the
+     * balance cannot cover them all; doing that here would make the coolant it burns disagree with the parallels it
+     * actually runs, so the machine asks for the whole amount and simply does not start when the network is short.
+     */
+    @Override
+    protected ProcessingLogic createProcessingLogic() {
+        return new ProcessingLogic() {
+
+            /** What one parallel of the run being looked at costs in total. */
+            private BigInteger parallelCost = BigInteger.ZERO;
+
+            @Override
+            protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
+                // One parallel of the whole run, up front: EU/t times the number of ticks it lasts. BigInteger
+                // because the stellar catalyst costs 2,147,483,647 EU/t for 100 ticks even at a single parallel, and
+                // the parallel count can take that to 33,554,432 times as much.
+                parallelCost = BigInteger.valueOf(recipe.mEUt)
+                    .multiply(BigInteger.valueOf(recipe.mDuration));
+                BigInteger wantedEU = parallelCost.multiply(BigInteger.valueOf(Math.max(1, maxParallel)));
+                BigInteger availableEU = getUserEU(wirelessOwner());
+                if (availableEU.compareTo(wantedEU) < 0) {
+                    finalConsumption = BigInteger.ZERO;
+                    return CheckRecipeResultRegistry.insufficientStartupPower(wantedEU);
+                }
+                return CheckRecipeResultRegistry.SUCCESSFUL;
+            }
+
+            @Override
+            protected @Nonnull CheckRecipeResult onRecipeStart(@Nonnull GTRecipe recipe) {
+                finalConsumption = parallelCost.multiply(BigInteger.valueOf(-calculatedParallels));
+                // Energy is taken out of the wireless network all at once, as the mixer does it. If the balance has
+                // dropped below what the run costs between the check above and this call, the run is refused and the
+                // inputs it has already consumed are voided - the mixer documents the same behaviour.
+                if (!addEUToGlobalEnergyMap(wirelessOwner(), finalConsumption)) {
+                    return CheckRecipeResultRegistry.insufficientStartupPower(finalConsumption);
+                }
+                // The run is paid for, so the machine must not draw anything per tick: with the calculated EU/t at
+                // zero, MTEExtendedPowerMultiBlockBase.onRunningTick has nothing to drain and never stops the machine
+                // for power loss.
+                overwriteCalculatedEut(0);
+                return CheckRecipeResultRegistry.SUCCESSFUL;
+            }
+
+            @Override
+            protected @Nonnull OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
+                return OverclockCalculator.ofNoOverclock(recipe);
+            }
+        }.setMaxParallelSupplier(this::getTrueParallel);
+    }
+
+    /**
+     * The voltage is only used to find the recipe, exactly as in the mixer: the machine has no energy hatch to take a
+     * tier from, and {@code setUnlimitedTierSkips()} is what keeps a recipe of any tier findable.
+     */
+    @Override
+    protected void setProcessingLogicPower(ProcessingLogic logic) {
+        logic.setAvailableVoltage(Long.MAX_VALUE);
+        logic.setAvailableAmperage(1);
+        logic.setAmperageOC(false);
+        logic.setUnlimitedTierSkips();
     }
 
     /**
@@ -461,7 +582,8 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                 + StructureBlueprintFile.depth(shape)
                 + " deep.",
             "\u00a77A = Dimensional Injection Casing: recipe fluid inputs and the maintenance hatch.",
-            "\u00a77B = Dimensionally Transcendent Casing: wireless energy hatch, item buses and outputs.",
+            "\u00a77B = Dimensionally Transcendent Casing: item buses and outputs. There is no energy hatch: the "
+                + "machine takes its power from the wireless network.",
             "\u00a77C = Dimensional Bridge: the coolant inputs.",
             "\u00a77D = black plutonium block, E = neutronium frame, F = superconducting coil block." };
     }
@@ -514,7 +636,6 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
             .addController("Front wall, middle of the " + (VERTICAL_OFF_SET + 1) + "th level from the top")
             .addCasing(MIN_TRANSCENDENT_CASINGS + "+", "Dimensionally Transcendent Casing", false)
             .addCasing(MIN_INJECTION_CASINGS + "+", "Dimensional Injection Casing", false)
-            .addEnergyHatch("1+", "Any Dimensionally Transcendent Casing - wireless hatches only", 2)
             .addMaintenanceHatch("1", "Any Dimensional Injection Casing", 1)
             .addInputHatch("1+", "Recipe fluids: any Dimensional Injection Casing", 1)
             .addInputHatch("1+", "Coolants: any Dimensional Bridge", 3)
