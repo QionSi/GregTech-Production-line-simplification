@@ -10,6 +10,7 @@ import com.qionsi.simplification.recipe.TranscendentCatalystAssemblyLine;
 import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.interfaces.tileentity.IVoidable;
 
 /**
  * Creates and registers everything this mod adds to GregTech.
@@ -131,7 +132,30 @@ public final class ModContent {
             return false;
         }
         MyMod.LOG.info("Registered the controller of {}", name);
+        logVoidProtection(id, name);
         prepareStructure.run();
         return true;
+    }
+
+    /**
+     * Reports what the controller that was just registered can do about an output that does not fit.
+     * <p>
+     * One line per machine, so a startup log shows at a glance that all three machines offer the item and fluid voiding
+     * switches in their GUI, which modes those switches can reach, and what a freshly built machine starts at. The
+     * button itself is drawn by GregTech for every multiblock; {@code supportsVoidProtection()} is what decides whether
+     * it can be clicked, so that is the value worth printing.
+     */
+    private static void logVoidProtection(int id, String name) {
+        if (!(GregTechAPI.METATILEENTITIES[id] instanceof IVoidable voidable)) return;
+        MyMod.LOG.info(
+            "{} void protection: supportsVoidProtection={} (the GUI voiding-mode button is drawn either way and is "
+                + "only clickable when this is true), modes the button cycles through={}, default mode={} "
+                + "(protectItems={}, protectFluids={})",
+            name,
+            voidable.supportsVoidProtection(),
+            voidable.getAllowedVoidingModes(),
+            voidable.getDefaultVoidingMode(),
+            voidable.getDefaultVoidingMode().protectItem,
+            voidable.getDefaultVoidingMode().protectFluid);
     }
 }

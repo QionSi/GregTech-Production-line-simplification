@@ -16,6 +16,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_IMPLOSION_COM
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -31,6 +32,7 @@ import gregtech.api.casing.Casings;
 import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
+import gregtech.api.enums.VoidingMode;
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
@@ -370,9 +372,43 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
         return 60;
     }
 
+    /**
+     * Void protection, the button in the machine's GUI that switches what happens to an output which does not fit.
+     * <p>
+     * GregTech draws that button for every multiblock ({@code MTEMultiBlockBaseGui.createVoidExcessButton}), but it is
+     * {@code supportsVoidProtection()} that decides whether the button does anything: with {@code false} the button is
+     * drawn grayed out with the "forbidden" tooltip and a click is ignored. Returning {@code true} is therefore what
+     * puts the item and fluid voiding into the player's hands.
+     * <p>
+     * Nothing here is hard-wired to protect or to void. The click cycles through {@link #getAllowedVoidingModes()},
+     * left click forwards and right click backwards, and the mode that comes out is what {@code protectsExcessItem()}
+     * and {@code protectsExcessFluid()} report to the recipe logic. GregTech saves the mode in the machine's NBT
+     * itself, so the choice survives the save.
+     */
     @Override
     public boolean supportsVoidProtection() {
         return true;
+    }
+
+    /**
+     * All four of GregTech's voiding modes are offered, so both kinds of output can be switched separately:
+     * {@code VOID_NONE} protects items and fluids, {@code VOID_ITEM} voids only the excess items, {@code VOID_FLUID}
+     * only the excess fluids and {@code VOID_ALL} voids both.
+     */
+    @Override
+    public Set<VoidingMode> getAllowedVoidingModes() {
+        return VoidingMode.ALL_OPTIONS;
+    }
+
+    /**
+     * The mode a freshly built machine starts in: {@link VoidingMode#VOID_NONE}, which protects both the item and the
+     * fluid output. That is GregTech's own starting point for every multiblock that supports void protection, and it is
+     * the safe one - an untouched machine never silently destroys an output. It is only a starting value, not a rule:
+     * the player can move it to any of the four modes from the GUI.
+     */
+    @Override
+    public VoidingMode getDefaultVoidingMode() {
+        return VoidingMode.VOID_NONE;
     }
 
     @Override
