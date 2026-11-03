@@ -178,20 +178,20 @@ public final class TranscendentCatalystAssemblyLine {
         ItemStack researchItem = new ItemStack(ModItems.preliminaryCatalystMaker, 1);
 
         List<String> missing = new ArrayList<>();
-        ItemStack megaBlastFurnace = megaMachine(
-            MetaTileEntityIDs.LegacyMegaBlastFurnace.ID,
-            new String[] { "Mega Electric Blast Furnace", "巨型工业高炉", "tile.bw.mbf" },
-            "巨型工业高炉 (Bartworks, localisation key tile.bw.mbf, MetaTileEntity id "
-                + MetaTileEntityIDs.LegacyMegaBlastFurnace.ID
-                + ")",
-            missing);
-        ItemStack megaVacuumFreezer = megaMachine(
-            MetaTileEntityIDs.LegacyMegaVacuumFreezer.ID,
-            new String[] { "Mega Vacuum Freezer", "巨型真空冷冻机", "tile.bw.mvf" },
-            "巨型真空冷冻机 (Bartworks, localisation key tile.bw.mvf, MetaTileEntity id "
-                + MetaTileEntityIDs.LegacyMegaVacuumFreezer.ID
-                + ")",
-            missing);
+        // The design document used to ask for 64 each of the Bartworks mega blast furnace and mega vacuum freezer.
+        // Both of those are deprecated, so the recipe now asks for 16 each of their replacements instead.
+        ItemStack exothermicHearth = item(
+            ItemList.ExothermicHearth,
+            new String[] { "Exothermic Hearth", "放热壁炉" },
+            "放热壁炉 (ItemList.ExothermicHearth, the replacement for the deprecated 巨型工业高炉)",
+            missing,
+            16);
+        ItemStack endothermicFridge = item(
+            ItemList.EndothermicFridge,
+            new String[] { "Endothermic Fridge", "吸热冰箱" },
+            "吸热冰箱 (ItemList.EndothermicFridge, the replacement for the deprecated 巨型真空冷冻机)",
+            missing,
+            16);
         ItemStack megaAlloyBlastSmelter = gtpp(
             GregtechItemList.Mega_AlloyBlastSmelter,
             new String[] { "Mega Alloy Blast Smelter", "巨型合金冶炼炉" },
@@ -269,7 +269,7 @@ public final class TranscendentCatalystAssemblyLine {
             COMPUTATION_PER_SECOND,
             RESEARCH_VOLTAGE,
             RESEARCH_AMPERAGE,
-            new Object[] { megaBlastFurnace, megaVacuumFreezer, megaAlloyBlastSmelter, industrialMixer,
+            new Object[] { exothermicHearth, endothermicFridge, megaAlloyBlastSmelter, industrialMixer,
                 largeFluidExtractor, fusionComputerMk4, uevCircuit, fieldGeneratorUev },
             catalysts.toArray(new FluidStack[0]),
             controller,
@@ -326,12 +326,12 @@ public final class TranscendentCatalystAssemblyLine {
         MyMod.LOG.info(
             "Registered the research-station and assembly line recipe of the Transcendent Catalyst Maker controller "
                 + "(output: {}; order: "
-                + "64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {}, with {} / {} / {} / {} "
+                + "16x {} -> 16x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {} -> 64x {}, with {} / {} / {} / {} "
                 + "mB of the four catalysts, {} EU/t for {} ticks ({} seconds), research item '{}', research {} EU/t at "
                 + "amperage {}, research requirement {} computation per second for {} seconds = {} in total)",
             describe(controller),
-            describe(megaBlastFurnace),
-            describe(megaVacuumFreezer),
+            describe(exothermicHearth),
+            describe(endothermicFridge),
             describe(megaAlloyBlastSmelter),
             describe(industrialMixer),
             describe(largeFluidExtractor),
@@ -427,7 +427,12 @@ public final class TranscendentCatalystAssemblyLine {
 
     /** 64 of a GregTech item, or {@code null}; the caller names the enum constant. */
     private static ItemStack item(ItemList entry, String[] names, String what, List<String> missing) {
-        ItemStack stack = entry.get(64);
+        return item(entry, names, what, missing, 64);
+    }
+
+    /** A given count of a GregTech item, or {@code null}; the caller names the enum constant. */
+    private static ItemStack item(ItemList entry, String[] names, String what, List<String> missing, int count) {
+        ItemStack stack = entry.get(count);
         if (stack == null || stack.getItem() == null) {
             missing.add(what + " -> the ItemList entry resolves to nothing");
             MyMod.LOG.error("{} could not be resolved: the item is not registered", what);

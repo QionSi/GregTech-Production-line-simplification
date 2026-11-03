@@ -57,3 +57,61 @@ simplification.tooltip.transcendentCatalystMaker.17=并行数量在能源面板�
 
 # 物品：初步研究的超维度催化剂制造机（装配线配方的研究物品）
 item.simplification.preliminaryCatalystMaker.name=初步研究的超维度催化剂制造机
+
+# 分子聚合物制造机
+gt.blockmachines.multimachine.molecularpolymerfabricator.name=分子聚合物制造机
+simplification.recipe.molecular_polymer_single=分子聚合物制造机：单步制造
+simplification.recipe.molecular_polymer_parallel=分子聚合物制造机：平行时空制造
+simplification.molecular_polymer.mode.single=单步制造
+simplification.molecular_polymer.mode.parallel=平行时空制造
+simplification.molecular_polymer.button.wireless_energy=能源来源：无线电网
+simplification.molecular_polymer.button.wireless_energy.on=开启 - 每次运行消耗直接从无线电网扣除
+simplification.molecular_polymer.button.wireless_energy.off=关闭 - 能源来自能源仓
+simplification.tooltip.molecularPolymerFabricator.1=该机器有两种模式：单步制造、平行时空制造
+simplification.tooltip.molecularPolymerFabricator.2=所有模式均支持无损超频！所以模式最大并行均为 2147483647
+simplification.tooltip.molecularPolymerFabricator.3=单步制造：
+simplification.tooltip.molecularPolymerFabricator.4=在该模式下消耗原料并通过原子操纵一步产出相关产物
+simplification.tooltip.molecularPolymerFabricator.5=平行时空制造：
+simplification.tooltip.molecularPolymerFabricator.6=时空连续体撕裂方块存在时即可开启
+simplification.tooltip.molecularPolymerFabricator.7=开启后，通过连续撕裂时空从平行时空抽取原料制造产物
+simplification.tooltip.molecularPolymerFabricator.8=在该模式下将不消耗任何原料！
+simplification.tooltip.molecularPolymerFabricator.9=支持多A能源仓与激光仓！
+simplification.tooltip.molecularPolymerFabricator.10=该机器可从无线电网直接获取能源（GUI 右侧按钮切换）
+simplification.tooltip.molecularPolymerFabricator.11=所有舱室（能源仓、维护仓、输入仓、输出仓、输入总线、输出总线）都放在化学惰性机械方块上
+simplification.tooltip.molecularPolymerFabricator.12=输入总线位置同时接受样板输入总成与 ME 输入总线，输出总线位置接受 ME 输出总线
+simplification.tooltip.molecularPolymerFabricator.13=添加模组：GT Simplification  贡献者：Tangent95、QionSi
+
+# 现代产业园
+gt.blockmachines.multimachine.modernindustrialpark.name=现代产业园
+simplification.recipe.modern_industrial_park=现代产业园
+simplification.tooltip.modernIndustrialPark.1=通过现代工业的统合将产线机器进行排列与综合运用
+simplification.tooltip.modernIndustrialPark.2=极具现代“工厂”的处理形式，你能够在这里一站式处理原料
+simplification.tooltip.modernIndustrialPark.3=但是从构成来看貌似缺少了许多机器
+simplification.tooltip.modernIndustrialPark.4=初始并行为 256，该机器支持无损超频！
+simplification.tooltip.modernIndustrialPark.5=每级线圈提供 5% 的配方时间减免，每级玻璃提供 2 倍并行加成
+simplification.tooltip.modernIndustrialPark.6=添加模组：GT Simplification
+simplification.tooltip.modernIndustrialPark.7=支持多A能源仓与激光仓！
+
+# 简易净水机
+gt.blockmachines.multimachine.simplewaterpurifier.name=简易净水机
+simplification.recipe.simple_water_purifier=简易净水机
+simplification.simple_water.button.wireless=能源来源：无线电网
+simplification.simple_water.button.wireless.on=开启 - 每次运行消耗直接从无线电网扣除
+simplification.simple_water.button.wireless.off=关闭 - 能源来自能源仓
+simplification.tooltip.simpleWaterPurifier.1=简易净水机抛弃了复杂的净化水流程，能够以非常简单的步骤产出净化水
+simplification.tooltip.simpleWaterPurifier.2=代价呢？量子叠加态的能耗与“薛定谔的猫”的原料投入
+simplification.tooltip.simpleWaterPurifier.3=t1 结构可生产 1、2 级净化水
+simplification.tooltip.simpleWaterPurifier.4=t2 结构可生产 1、2、3、4 级净化水
+simplification.tooltip.simpleWaterPurifier.5=t3 结构可生产 1、2、3、4、5、6 级净化水
+simplification.tooltip.simpleWaterPurifier.6=t4 结构可生产 1、2、3、4、5、6、7、8 级净化水
+simplification.tooltip.simpleWaterPurifier.7=添加模组：GT Simplification  贡献者：sqrt、QionSi
+simplification.tooltip.simpleWaterPurifier.8=能源仓电压等级不限制配方电压
+simplification.tooltip.simpleWaterPurifier.9=支持多A能源仓与激光仓！
+simplification.tooltip.simpleWaterPurifier.10=可从无线电网获取能源！
+simplification.tooltip.simpleWaterPurifier.11=该机器不支持超频，所有配方固定为 120s
+simplification.tooltip.simpleWaterPurifier.12=结构等级由控制器槽位内的净水厂升级芯片决定：无芯片为 t1，T2/T3/T4 芯片分别只支持对应等级
+simplification.tooltip.simpleWaterPurifier.13=所有舱室都放在强化无菌净水厂机械方块（Reinforced Sterile Water Plant Casing）上
+item.simplification.waterPurifierReport.name=净水厂研究报告
+item.simplification.waterPurifierChipT2.name=T2净水厂升级芯片
+item.simplification.waterPurifierChipT3.name=T3净水厂升级芯片
+item.simplification.waterPurifierChipT4.name=T4净水厂升级芯片

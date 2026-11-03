@@ -15,6 +15,7 @@ import gregtech.api.objects.SubstituteFluidStack;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.util.GTOreDictUnificator;
 import gregtech.api.util.GTRecipeBuilder;
+import gregtech.api.util.GTUtility;
 
 /**
  * The recipes of the 石油化工综合体 / Petrochemical Complex.
@@ -289,6 +290,10 @@ public final class ModRecipes {
 
     /** Convenience wrapper so a recipe can be written as "1 Sulfur dust". */
     private static ItemStack dust(Materials material, int amount) {
-        return GTOreDictUnificator.get(OrePrefixes.dust, material, amount);
+        ItemStack base = GTOreDictUnificator.get(OrePrefixes.dust, material, 1);
+        if (base == null) return null;
+        // copyAmount clamps anything above 64 to 64, so a recipe written through it silently asks for one stack
+        // instead of the amount it names. copyAmountUnsafe keeps the number.
+        return GTUtility.copyAmountUnsafe(amount, base);
     }
 }

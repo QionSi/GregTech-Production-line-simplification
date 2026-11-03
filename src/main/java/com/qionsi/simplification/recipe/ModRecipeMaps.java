@@ -113,5 +113,82 @@ public final class ModRecipeMaps {
         .frontend(LargeNEIFrontend::new)
         .build();
 
+    /** Item inputs the single step page is laid out for: at most three dusts plus the programming circuit. */
+    public static final int MOLECULAR_POLYMER_SINGLE_MAX_ITEM_INPUTS = 6;
+
+    /** Item outputs that page is laid out for; every single step recipe returns fluids only. */
+    public static final int MOLECULAR_POLYMER_SINGLE_MAX_ITEM_OUTPUTS = 2;
+
+    /** Fluid inputs: the widest single step recipe takes three (hydrogen, nitrogen and oxygen for the Kevlar). */
+    public static final int MOLECULAR_POLYMER_SINGLE_MAX_FLUID_INPUTS = 6;
+
+    /** Fluid outputs: the Radox recipe returns two (the polymer and the heavy Radox). */
+    public static final int MOLECULAR_POLYMER_SINGLE_MAX_FLUID_OUTPUTS = 4;
+
+    /**
+     * 分子聚合物制造机：单步制造 / Molecular Polymer Fabricator, single step.
+     * <p>
+     * This is the pool that consumes reagents. The widest recipe takes two dusts and the programming circuit, two
+     * fluid inputs and returns two fluids, so the page is sized a little above that.
+     */
+    public static final RecipeMap<RecipeMapBackend> molecularPolymerSingleRecipes = RecipeMapBuilder
+        .of("simplification.recipe.molecular_polymer_single")
+        .maxIO(
+            MOLECULAR_POLYMER_SINGLE_MAX_ITEM_INPUTS,
+            MOLECULAR_POLYMER_SINGLE_MAX_ITEM_OUTPUTS,
+            MOLECULAR_POLYMER_SINGLE_MAX_FLUID_INPUTS,
+            MOLECULAR_POLYMER_SINGLE_MAX_FLUID_OUTPUTS)
+        .minInputs(0, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
+    /**
+     * 分子聚合物制造机：平行时空制造 / Molecular Polymer Fabricator, parallel timeline.
+     * <p>
+     * These recipes consume nothing but the programming circuit that picks them, because the reagents are pulled out of
+     * a parallel timeline instead. The page is therefore laid out for one item input and the fluid outputs.
+     */
+    public static final RecipeMap<RecipeMapBackend> molecularPolymerParallelRecipes = RecipeMapBuilder
+        .of("simplification.recipe.molecular_polymer_parallel")
+        .maxIO(2, 2, 2, 4)
+        .minInputs(0, 0)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
+    /**
+     * 现代产业园 / Modern Industrial Park.
+     * <p>
+     * One pool for all six recipes; the programming circuit picks which one runs. The widest recipe - the netherite
+     * nanoparticle batch - returns eight item stacks and eight fluids, so the page is laid out for that.
+     */
+    public static final RecipeMap<RecipeMapBackend> modernIndustrialParkRecipes = RecipeMapBuilder
+        .of("simplification.recipe.modern_industrial_park")
+        .maxIO(4, 8, 4, 8)
+        .minInputs(0, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
+    /**
+     * 简易净水机 / Simple Water Purifier.
+     * <p>
+     * One pool of four recipes, picked apart by the programming circuit; each recipe's minimum structure tier lives in
+     * its {@code mSpecialValue} and the machine filters on it. The widest recipe returns the eight purified water
+     * grades, so the page is laid out for eight fluid outputs.
+     */
+    public static final RecipeMap<RecipeMapBackend> simpleWaterPurifierRecipes = RecipeMapBuilder
+        .of("simplification.recipe.simple_water_purifier")
+        .maxIO(2, 2, 4, 8)
+        .minInputs(0, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
     private ModRecipeMaps() {}
 }

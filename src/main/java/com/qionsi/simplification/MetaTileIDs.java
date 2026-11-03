@@ -25,5 +25,20 @@ public final class MetaTileIDs {
      */
     public static final int TRANSCENDENT_CATALYST_MAKER_CONTROLLER = 32702;
 
+    /**
+     * 分子聚合物制造机 / Molecular Polymer Fabricator controller.
+     */
+    public static final int MOLECULAR_POLYMER_FABRICATOR_CONTROLLER = 32703;
+
+    /**
+     * 现代产业园 / Modern Industrial Park controller.
+     */
+    public static final int MODERN_INDUSTRIAL_PARK_CONTROLLER = 32704;
+
+    /**
+     * 简易净水机 / Simple Water Purifier controller.
+     */
+    public static final int SIMPLE_WATER_PURIFIER_CONTROLLER = 32705;
+
     private MetaTileIDs() {}
 }

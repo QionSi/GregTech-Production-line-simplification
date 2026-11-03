@@ -57,3 +57,61 @@ simplification.tooltip.transcendentCatalystMaker.17=并行数量在能源面板�
 
 # Item: Preliminary Study: Transcendent Catalyst Maker (the research item of the assembly line recipe)
 item.simplification.preliminaryCatalystMaker.name=Preliminary Study: Transcendent Catalyst Maker
+
+# Molecular Polymer Fabricator
+gt.blockmachines.multimachine.molecularpolymerfabricator.name=Molecular Polymer Fabricator
+simplification.recipe.molecular_polymer_single=Molecular Polymer Fabricator: Single Step
+simplification.recipe.molecular_polymer_parallel=Molecular Polymer Fabricator: Parallel Timeline
+simplification.molecular_polymer.mode.single=Single Step
+simplification.molecular_polymer.mode.parallel=Parallel Timeline
+simplification.molecular_polymer.button.wireless_energy=Power source: wireless network
+simplification.molecular_polymer.button.wireless_energy.on=On - every run is paid for out of your wireless network
+simplification.molecular_polymer.button.wireless_energy.off=Off - power comes from the energy hatches
+simplification.tooltip.molecularPolymerFabricator.1=This machine has two modes: single step and parallel timeline
+simplification.tooltip.molecularPolymerFabricator.2=Both modes overclock without loss, and both reach 2147483647 parallels
+simplification.tooltip.molecularPolymerFabricator.3=Single step:
+simplification.tooltip.molecularPolymerFabricator.4=Consumes the reagents and produces the product in one step by manipulating atoms
+simplification.tooltip.molecularPolymerFabricator.5=Parallel timeline:
+simplification.tooltip.molecularPolymerFabricator.6=Unlocked while the space time continuum ripper blocks are present
+simplification.tooltip.molecularPolymerFabricator.7=It tears spacetime open over and over and pulls the reagents out of a parallel timeline
+simplification.tooltip.molecularPolymerFabricator.8=In this mode it consumes no reagents at all
+simplification.tooltip.molecularPolymerFabricator.9=Supports multi-amp energy hatches and laser hatches
+simplification.tooltip.molecularPolymerFabricator.10=Can take its power straight out of the wireless network (switch on the right of the GUI)
+simplification.tooltip.molecularPolymerFabricator.11=Every hatch - energy, maintenance, input hatch, output hatch, input bus, output bus - goes on a Chemically Inert Machine Casing
+simplification.tooltip.molecularPolymerFabricator.12=The input bus positions also take the pattern provider and the ME input bus; the output bus positions also take the ME output bus
+simplification.tooltip.molecularPolymerFabricator.13=Mod: GT Simplification  Contributors: Tangent95, QionSi
+
+# Modern Industrial Park
+gt.blockmachines.multimachine.modernindustrialpark.name=Modern Industrial Park
+simplification.recipe.modern_industrial_park=Modern Industrial Park
+simplification.tooltip.modernIndustrialPark.1=Modern industry's integration: production line machines arranged and run together
+simplification.tooltip.modernIndustrialPark.2=A thoroughly modern "factory" layout - raw materials are handled in one place
+simplification.tooltip.modernIndustrialPark.3=Judging by what it is made of, rather a lot of machines seem to be missing
+simplification.tooltip.modernIndustrialPark.4=Starts at 256 parallels, and overclocks without loss
+simplification.tooltip.modernIndustrialPark.5=Every heating coil tier saves 5% of the recipe time, every glass tier doubles the parallels
+simplification.tooltip.modernIndustrialPark.6=Mod: GT Simplification
+simplification.tooltip.modernIndustrialPark.7=Supports multi-amp energy hatches and laser hatches
+
+# Simple Water Purifier
+gt.blockmachines.multimachine.simplewaterpurifier.name=Simple Water Purifier
+simplification.recipe.simple_water_purifier=Simple Water Purifier
+simplification.simple_water.button.wireless=Power source: wireless network
+simplification.simple_water.button.wireless.on=On - every run is paid for out of your wireless network
+simplification.simple_water.button.wireless.off=Off - power comes from the energy hatches
+simplification.tooltip.simpleWaterPurifier.1=The Simple Water Purifier throws the complicated purification line away and makes purified water in one very simple step
+simplification.tooltip.simpleWaterPurifier.2=The price? A quantum-superposition power draw and "Schrodinger's cat" style reagent consumption
+simplification.tooltip.simpleWaterPurifier.3=The t1 structure makes purified water of grades 1 and 2
+simplification.tooltip.simpleWaterPurifier.4=The t2 structure makes grades 1 to 4
+simplification.tooltip.simpleWaterPurifier.5=The t3 structure makes grades 1 to 6
+simplification.tooltip.simpleWaterPurifier.6=The t4 structure makes grades 1 to 8
+simplification.tooltip.simpleWaterPurifier.7=Mod: GT Simplification  Contributors: sqrt, QionSi
+simplification.tooltip.simpleWaterPurifier.8=The energy hatch tier never limits the recipe voltage
+simplification.tooltip.simpleWaterPurifier.9=Supports multi-amp energy hatches and laser hatches
+simplification.tooltip.simpleWaterPurifier.10=Can take its power out of the wireless network
+simplification.tooltip.simpleWaterPurifier.11=This machine does not overclock; every recipe is fixed at 120 seconds
+simplification.tooltip.simpleWaterPurifier.12=The structure tier is chosen by the purifier chip in the controller slot: none for t1, then the T2/T3/T4 chips for their own tier only
+simplification.tooltip.simpleWaterPurifier.13=Every hatch goes on a Reinforced Sterile Water Plant Casing
+item.simplification.waterPurifierReport.name=Purification Plant Research Report
+item.simplification.waterPurifierChipT2.name=T2 Purification Plant Upgrade Chip
+item.simplification.waterPurifierChipT3.name=T3 Purification Plant Upgrade Chip
+item.simplification.waterPurifierChipT4.name=T4 Purification Plant Upgrade Chip

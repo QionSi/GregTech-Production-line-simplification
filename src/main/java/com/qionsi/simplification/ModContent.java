@@ -1,11 +1,17 @@
 package com.qionsi.simplification;
 
+import com.qionsi.simplification.machine.MTEModernIndustrialPark;
+import com.qionsi.simplification.machine.MTEMolecularPolymerFabricator;
 import com.qionsi.simplification.machine.MTEPetrochemicalComplex;
 import com.qionsi.simplification.machine.MTERareEarthComplex;
+import com.qionsi.simplification.machine.MTESimpleWaterPurifier;
 import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
+import com.qionsi.simplification.recipe.ModernIndustrialParkRecipes;
+import com.qionsi.simplification.recipe.MolecularPolymerRecipes;
 import com.qionsi.simplification.recipe.RareEarthRecipes;
+import com.qionsi.simplification.recipe.SimpleWaterPurifierRecipes;
 import com.qionsi.simplification.recipe.TranscendentCatalystAssemblyLine;
 import com.qionsi.simplification.recipe.TranscendentCatalystRecipes;
 
@@ -58,6 +64,30 @@ public final class ModContent {
             "MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER",
             MTETranscendentCatalystMaker::prepareStructure);
 
+        // The Molecular Polymer Fabricator is built entirely out of GregTech, New Horizons Core Mod and Thaumcraft
+        // blocks, all of which exist by now, so its two blueprints can be checked here as well.
+        registerMachine(
+            MetaTileIDs.MOLECULAR_POLYMER_FABRICATOR_CONTROLLER,
+            "the Molecular Polymer Fabricator",
+            "MetaTileIDs.MOLECULAR_POLYMER_FABRICATOR_CONTROLLER",
+            MTEMolecularPolymerFabricator::prepareStructure);
+
+        // The Modern Industrial Park is the same story: every block it is built from is registered by the time the
+        // controllers are created, so its blueprint is checked right here.
+        registerMachine(
+            MetaTileIDs.MODERN_INDUSTRIAL_PARK_CONTROLLER,
+            "the Modern Industrial Park",
+            "MetaTileIDs.MODERN_INDUSTRIAL_PARK_CONTROLLER",
+            MTEModernIndustrialPark::prepareStructure);
+
+        // The Simple Water Purifier is built out of GregTech, GT++ and Chisel blocks; the Chisel one is resolved lazily
+        // at the first structure check, so the blueprint can be verified here as well.
+        registerMachine(
+            MetaTileIDs.SIMPLE_WATER_PURIFIER_CONTROLLER,
+            "the Simple Water Purifier",
+            "MetaTileIDs.SIMPLE_WATER_PURIFIER_CONTROLLER",
+            MTESimpleWaterPurifier::prepareStructure);
+
         try {
             ModRecipes.init();
             MyMod.LOG.info(
@@ -93,6 +123,31 @@ public final class ModContent {
             MyMod.LOG
                 .error("Could not register the Preliminary Study assembly line recipe; the recipe will be missing.", t);
         }
+
+        // The Molecular Polymer Fabricator's super glue recipe needs a fluid GT++ builds during its own init, so that
+        // class defers itself the same way the rare earth recipes do; a failure here leaves the machine empty-handed.
+        try {
+            MolecularPolymerRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG
+                .error("Could not register the Molecular Polymer Fabricator recipes; the machine will have none.", t);
+        }
+
+        // The Modern Industrial Park's naquadah oxide recipes need Bartworks dusts and its waste fluid, which is the
+        // same kind of deferral.
+        try {
+            ModernIndustrialParkRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not register the Modern Industrial Park recipes; the machine will have none.", t);
+        }
+
+        // The Simple Water Purifier's part recipes need the report and chips, which ModItems creates after this class
+        // has run, so that class defers itself the same way.
+        try {
+            SimpleWaterPurifierRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not register the Simple Water Purifier recipes; the machine will have none.", t);
+        }
         return true;
     }
 
@@ -109,11 +164,20 @@ public final class ModContent {
                 new MTEPetrochemicalComplex(id, "multimachine.petrochemicalcomplex", "Petrochemical Complex");
             } else if (id == MetaTileIDs.RARE_EARTH_COMPLEX_CONTROLLER) {
                 new MTERareEarthComplex(id, "multimachine.rareearthcomplex", "Rare Earth Processing Complex");
-            } else {
+            } else if (id == MetaTileIDs.TRANSCENDENT_CATALYST_MAKER_CONTROLLER) {
                 new MTETranscendentCatalystMaker(
                     id,
                     "multimachine.transcendentcatalystmaker",
                     "Transcendent Catalyst Maker");
+            } else if (id == MetaTileIDs.MOLECULAR_POLYMER_FABRICATOR_CONTROLLER) {
+                new MTEMolecularPolymerFabricator(
+                    id,
+                    "multimachine.molecularpolymerfabricator",
+                    "Molecular Polymer Fabricator");
+            } else if (id == MetaTileIDs.MODERN_INDUSTRIAL_PARK_CONTROLLER) {
+                new MTEModernIndustrialPark(id, "multimachine.modernindustrialpark", "Modern Industrial Park");
+            } else {
+                new MTESimpleWaterPurifier(id, "multimachine.simplewaterpurifier", "Simple Water Purifier");
             }
         } catch (Throwable t) {
             // A class initialiser failure here is almost always an id clash with another addon. Report it and carry on

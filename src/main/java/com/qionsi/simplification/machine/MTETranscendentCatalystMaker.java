@@ -675,6 +675,7 @@ public class MTETranscendentCatalystMaker extends MTEExtendedPowerMultiBlockBase
                 + ".");
         // beginStructureBlock takes width, height and depth in that order, all three read off the blueprint so that an
         // edit to the structure keeps the tooltip correct.
+        tt.addInfo("\u6dfb\u52a0\u6a21\u7ec4\uff1aSimplification");
         tt.beginStructureBlock(
             StructureBlueprintFile.width(shape),
             StructureBlueprintFile.height(shape),

@@ -304,6 +304,7 @@ public class MTEPetrochemicalComplex extends MTEExtendedPowerMultiBlockBase<MTEP
             .addSeparator()
             // beginStructureBlock takes width, height and depth in that order, all three read off the blueprint so an
             // edit to the structure keeps the tooltip correct.
+            .addInfo("\u6dfb\u52a0\u6a21\u7ec4\uff1aSimplification")
             .beginStructureBlock(
                 StructureBlueprintFile.width(shape),
                 StructureBlueprintFile.height(shape),

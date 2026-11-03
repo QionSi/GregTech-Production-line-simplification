@@ -390,6 +390,16 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, HORIZONTAL_OFF_SET, VERTICAL_OFF_SET, DEPTH_OFF_SET);
     }
 
+    /**
+     * Builds one slice of the hologram.
+     * <p>
+     * {@code checkIfPlaced} is deliberately {@code false}. With it set, {@code survivalBuildPiece} calls
+     * {@code checkStructure} after every batch of blocks; on this shape - which is mostly air with a shell around it -
+     * a half-built hologram could satisfy the structure check, which sets {@code mMachine} to true, and every later
+     * call then hits the {@code if (mMachine) return -1} guard above. The NEI preview loops until the world stops
+     * changing, so that guard silently truncated the preview to whatever had been placed by then. Letting the preview
+     * finish without re-checking is what makes it draw the whole machine.
+     */
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;
@@ -402,9 +412,18 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             elementBudget,
             env,
             false,
-            true);
+            false);
     }
 
+    /**
+     * The text the projector prints and the NEI preview reads its dot hints from.
+     * <p>
+     * BlockRenderer6343 scrapes this array for lines of the form {@code "Hint N dot: <text>"} and maps the dot number
+     * to the text. Without those lines the preview still highlights the hatch positions but shows no explanation, which
+     * reads as an incomplete preview. The numbers here are the same ones {@code createTooltip} passes to
+     * {@code addEnergyHatch(..., 1)} and friends, and the same ones the structure definition's {@code hint(n)} calls
+     * use.
+     */
     @Override
     public String[] getStructureDescription(ItemStack stackSize) {
         return new String[] { "\u00a7e\u7a00\u571f\u7efc\u5408\u5904\u7406\u00a7r / Rare Earth Processing Complex",
@@ -418,6 +437,9 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             "\u00a77A = Chemically Inert Machine Casing: every hatch goes here.",
             "\u00a77B = any heating coil, C = any tiered structure glass.",
             "\u00a77H = the muffler slots drawn in the blueprint.",
+            "\u00a7eHint 1 dot: \u00a77Energy, maintenance, input and output hatches - any Chemically Inert "
+                + "Machine Casing",
+            "\u00a7eHint 3 dot: \u00a77The muffler slots - every position marked H",
             "\u00a77Sneak-right-click the controller with the projector to build it automatically." };
     }
 
@@ -669,6 +691,7 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             .addSeparator()
             // beginStructureBlock takes width, height and depth in that order, all three read off the blueprint so an
             // edit to the structure keeps the tooltip correct.
+            .addInfo("\u6dfb\u52a0\u6a21\u7ec4\uff1aSimplification")
             .beginStructureBlock(
                 StructureBlueprintFile.width(shape),
                 StructureBlueprintFile.height(shape),

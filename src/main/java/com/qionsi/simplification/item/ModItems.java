@@ -40,6 +40,15 @@ public final class ModItems {
     /** The 初步研究的超维度催化剂制造机 / Preliminary Study: Transcendent Catalyst Maker. */
     public static Item preliminaryCatalystMaker;
 
+    /** 净水厂研究报告 / the report the scanner turns into the data stick the controller recipe needs. */
+    public static Item waterPurifierReport;
+    /** T2 净水厂升级芯片 / the chip that lets the 简易净水机 form its t2 structure. */
+    public static Item waterPurifierChipT2;
+    /** T3 净水厂升级芯片. */
+    public static Item waterPurifierChipT3;
+    /** T4 净水厂升级芯片. */
+    public static Item waterPurifierChipT4;
+
     private static boolean registered;
     private static boolean recipesRegistered;
     private static boolean assemblerRecipeRegistered;
@@ -73,6 +82,23 @@ public final class ModItems {
         } catch (Throwable t) {
             preliminaryCatalystMaker = null;
             MyMod.LOG.error("Could not register the Preliminary Study: Transcendent Catalyst Maker item", t);
+        }
+
+        // 净水厂研究报告 and the three upgrade chips. The report wears the enchanted book texture the design document
+        // asks for; the chips wear GregTech's flash memory texture, which is meta 708 of gt.metaitem.01.
+        try {
+            waterPurifierReport = new ItemWaterPurifierPart("waterPurifierReport", "minecraft:book_writable");
+            GameRegistry.registerItem(waterPurifierReport, "water_purifier_report");
+            waterPurifierChipT2 = new ItemWaterPurifierPart("waterPurifierChipT2", "gregtech:gt.metaitem.01/708");
+            GameRegistry.registerItem(waterPurifierChipT2, "water_purifier_chip_t2");
+            waterPurifierChipT3 = new ItemWaterPurifierPart("waterPurifierChipT3", "gregtech:gt.metaitem.01/708");
+            GameRegistry.registerItem(waterPurifierChipT3, "water_purifier_chip_t3");
+            waterPurifierChipT4 = new ItemWaterPurifierPart("waterPurifierChipT4", "gregtech:gt.metaitem.01/708");
+            GameRegistry.registerItem(waterPurifierChipT4, "water_purifier_chip_t4");
+            MyMod.LOG.info("Registered the 净水厂研究报告 and the T2/T3/T4 净水厂升级芯片 items");
+        } catch (Throwable t) {
+            waterPurifierReport = null;
+            MyMod.LOG.error("Could not register the Simple Water Purifier items", t);
         }
     }
 
