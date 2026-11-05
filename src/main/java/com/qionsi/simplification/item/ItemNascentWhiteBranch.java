@@ -1,5 +1,6 @@
 package com.qionsi.simplification.item;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.FoodStats;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.StatCollector;
 
@@ -201,6 +203,11 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
     // Effects
     // ---------------------------------------------------------------------------------------------------------------
 
+    /** Set after the first failure so a broken tick cannot flood the log. */
+    private static boolean effectsFailureReported;
+
+    private static final Field SATURATION_LEVEL = saturationLevelField();
+
     private static void applyEffects(EntityPlayer player, boolean justEquipped) {
         try {
             keepAlive(player);
@@ -211,10 +218,15 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
             if (justEquipped || player.ticksExisted % RESEARCH_INTERVAL == 0) unlockAllResearch(player);
             rescueFromTheVoid(player);
         } catch (Throwable t) {
-            MyMod.LOG.error(
-                "The Nascent White Branch could not apply its effects to " + player.getCommandSenderName()
-                    + "; the next tick will try again.",
-                t);
+            // This runs every tick for every wearer. Reporting the full trace each time is what filled a player's log
+            // with hundreds of megabytes per minute, so a repeated failure is reported once and then stays quiet.
+            if (!effectsFailureReported) {
+                effectsFailureReported = true;
+                MyMod.LOG.error(
+                    "The Nascent White Branch could not apply its effects to " + player.getCommandSenderName()
+                        + "; it will keep retrying every tick, but this is the only time the failure is reported.",
+                    t);
+            }
         }
     }
 
@@ -248,17 +260,42 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
         if (player.getHealth() < player.getMaxHealth()) player.setHealth(player.getMaxHealth());
     }
 
-    /** Food to {@value #FOOD}: level and saturation, every tick. */
+    /**
+     * Food to {@value #FOOD}: level and saturation, every tick.
+     * <p>
+     * {@code FoodStats.getSaturationLevel()} and {@code setFoodSaturationLevel(float)} are
+     * {@code @SideOnly(Side.CLIENT)} in 1.7.10, so the server build does not contain them at all - calling them there
+     * throws {@code NoSuchMethodError} on every tick. That is what filled the log: the call sites were wrapped in the
+     * per-tick catch in {@link #applyEffects}, so every tick wrote a full stack trace and a minute of it came to
+     * hundreds of megabytes.
+     * <p>
+     * The {@code saturationLevel} field itself exists on both sides, so it is written through reflection instead. The
+     * food level alone is still set the normal way, and if the field cannot be reached the saturation is simply left
+     * where it is rather than throwing.
+     */
     private static void keepFed(EntityPlayer player) {
-        if (player.getFoodStats()
-            .getFoodLevel() != FOOD) {
-            player.getFoodStats()
-                .setFoodLevel(FOOD);
+        FoodStats stats = player.getFoodStats();
+        if (stats.getFoodLevel() != FOOD) stats.setFoodLevel(FOOD);
+        if (SATURATION_LEVEL == null) return;
+        try {
+            if (SATURATION_LEVEL.getFloat(stats) < FOOD) SATURATION_LEVEL.setFloat(stats, FOOD);
+        } catch (Throwable ignored) {
+            // The food level is the part that matters for survival; saturation is the visual overlay.
         }
-        if (player.getFoodStats()
-            .getSaturationLevel() < FOOD) {
-            player.getFoodStats()
-                .setFoodSaturationLevel(FOOD);
+    }
+
+    /** {@code FoodStats.saturationLevel}, which has no cross-side accessor in 1.7.10. */
+    private static Field saturationLevelField() {
+        try {
+            Field field = FoodStats.class.getDeclaredField("saturationLevel");
+            field.setAccessible(true);
+            return field;
+        } catch (Throwable t) {
+            MyMod.LOG.warn(
+                "Could not reach FoodStats.saturationLevel; the Nascent White Branch will keep the food level up but "
+                    + "leave saturation alone.",
+                t);
+            return null;
         }
     }
 

@@ -33,6 +33,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.ForgeDirection;
 
+import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -50,6 +51,7 @@ import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
 import gregtech.api.enums.VoidingMode;
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.interfaces.INEIPreviewModifier;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
@@ -90,7 +92,7 @@ import gtPlusPlus.core.block.ModBlocks;
  * {@link StructureBlueprintFile} reads at runtime.
  */
 public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareEarthComplex>
-    implements ISurvivalConstructable, ICasingTextureProvider {
+    implements ISurvivalConstructable, ICasingTextureProvider, INEIPreviewModifier {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
 
@@ -383,6 +385,19 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         if (fallback.wasSuccessful()) return fallback;
         machineMode = previous;
         return result;
+    }
+
+    /**
+     * Keeps the NEI preview from filling every casing position with a hatch.
+     * <p>
+     * The hatch element asks for a real hatch item when it is placed, and the preview's item source is creative - it
+     * will hand over any hatch there is. The element only refuses to do that when the trigger carries no
+     * {@code GTStructureChannels.HATCH} value, so the preview is given one without it and the element falls through to
+     * the casing behind it. Without this, the whole chemically inert shell renders as a wall of hatch blocks.
+     */
+    @Override
+    public void onPreviewConstruct(ItemStack trigger) {
+        ChannelDataAccessor.unsetChannelData(trigger, GTStructureChannels.HATCH.get());
     }
 
     @Override
