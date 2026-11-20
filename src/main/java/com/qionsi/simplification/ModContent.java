@@ -1,15 +1,19 @@
 package com.qionsi.simplification;
 
+import com.qionsi.simplification.machine.MTEAruReflection;
 import com.qionsi.simplification.machine.MTEModernIndustrialPark;
 import com.qionsi.simplification.machine.MTEMolecularPolymerFabricator;
+import com.qionsi.simplification.machine.MTENaquadahFuelLaboratory;
 import com.qionsi.simplification.machine.MTEPetrochemicalComplex;
 import com.qionsi.simplification.machine.MTERareEarthComplex;
 import com.qionsi.simplification.machine.MTESimpleWaterPurifier;
 import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
+import com.qionsi.simplification.recipe.AruReflectionRecipe;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
 import com.qionsi.simplification.recipe.ModernIndustrialParkRecipes;
 import com.qionsi.simplification.recipe.MolecularPolymerRecipes;
+import com.qionsi.simplification.recipe.NaquadahFuelRecipes;
 import com.qionsi.simplification.recipe.RareEarthRecipes;
 import com.qionsi.simplification.recipe.SimpleWaterPurifierRecipes;
 import com.qionsi.simplification.recipe.TranscendentCatalystAssemblyLine;
@@ -88,6 +92,20 @@ public final class ModContent {
             "MetaTileIDs.SIMPLE_WATER_PURIFIER_CONTROLLER",
             MTESimpleWaterPurifier::prepareStructure);
 
+        // 阿如的倒影: its shape is a 279 x 275 x 275 translation of a 1.20.1 schematic, so the blueprint is read and
+        // reported at startup rather than verified symbol by symbol.
+        registerMachine(
+            MetaTileIDs.ARU_REFLECTION_CONTROLLER,
+            "Aru's Reflection",
+            "MetaTileIDs.ARU_REFLECTION_CONTROLLER",
+            MTEAruReflection::prepareStructure);
+
+        registerMachine(
+            MetaTileIDs.NAQUADAH_FUEL_LAB_CONTROLLER,
+            "Naquadah Fuel Research and Test Machine",
+            "MetaTileIDs.NAQUADAH_FUEL_LAB_CONTROLLER",
+            MTENaquadahFuelLaboratory::prepareStructure);
+
         try {
             ModRecipes.init();
             MyMod.LOG.info(
@@ -148,6 +166,19 @@ public final class ModContent {
         } catch (Throwable t) {
             MyMod.LOG.error("Could not register the Simple Water Purifier recipes; the machine will have none.", t);
         }
+
+        // 阿如的倒影 needs the Research Station, which TecTech only fills in late, so this defers itself too.
+        try {
+            AruReflectionRecipe.init();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not register Aru's Reflection's assembly line recipe.", t);
+        }
+
+        try {
+            NaquadahFuelRecipes.init();
+        } catch (Throwable t) {
+            MyMod.LOG.error("Could not register the Naquadah fuel recipes; the machine will have none.", t);
+        }
         return true;
     }
 
@@ -176,8 +207,15 @@ public final class ModContent {
                     "Molecular Polymer Fabricator");
             } else if (id == MetaTileIDs.MODERN_INDUSTRIAL_PARK_CONTROLLER) {
                 new MTEModernIndustrialPark(id, "multimachine.modernindustrialpark", "Modern Industrial Park");
-            } else {
+            } else if (id == MetaTileIDs.SIMPLE_WATER_PURIFIER_CONTROLLER) {
                 new MTESimpleWaterPurifier(id, "multimachine.simplewaterpurifier", "Simple Water Purifier");
+            } else if (id == MetaTileIDs.ARU_REFLECTION_CONTROLLER) {
+                new MTEAruReflection(id, "multimachine.arureflection", "Reflection of Aru");
+            } else {
+                new MTENaquadahFuelLaboratory(
+                    id,
+                    "multimachine.naquadahfuellab",
+                    "Naquadah Fuel Research and Test Machine");
             }
         } catch (Throwable t) {
             // A class initialiser failure here is almost always an id clash with another addon. Report it and carry on

@@ -190,5 +190,31 @@ public final class ModRecipeMaps {
         .frontend(LargeNEIFrontend::new)
         .build();
 
+    /**
+     * 硅岩燃料研究与试验机 - research mode: feedstock in, 硅岩基流体燃料 Mk-I .. Mk-VI out.
+     */
+    public static final RecipeMap<RecipeMapBackend> naquadahFuelResearchRecipes = RecipeMapBuilder
+        .of("simplification.recipe.naquadah_fuel_research")
+        .maxIO(16, 4, 8, 4)
+        .minInputs(1, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
+    /**
+     * 硅岩燃料研究与试验机 - test mode: the same feedstock, burned for power.
+     */
+    public static final RecipeMap<RecipeMapBackend> naquadahFuelTestRecipes = RecipeMapBuilder
+        .of("simplification.recipe.naquadah_fuel_test")
+        // The test mode produces power, so mEUt is 0 and the real payout is drawn by this formatter.
+        .neiSpecialInfoFormatter(new com.qionsi.simplification.recipe.NaquadahFuelPowerFormatter())
+        .maxIO(16, 4, 8, 4)
+        .minInputs(1, 1)
+        .neiTransferRect(52, 24, 18, 54)
+        .neiTransferRect(106, 24, 18, 54)
+        .frontend(LargeNEIFrontend::new)
+        .build();
+
     private ModRecipeMaps() {}
 }

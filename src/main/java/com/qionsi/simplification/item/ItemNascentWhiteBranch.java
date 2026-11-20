@@ -71,7 +71,18 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
     public static final int FOOD = 40;
 
     /** Temporary warp the wearer is pinned to; the other two warps are pinned to zero. */
+    /** Set once when the Baubles inventory cannot be read, so the per-tick scan does not log a trace every tick. */
+    private static final java.util.concurrent.atomic.AtomicBoolean baubleFailureReported = new java.util.concurrent.atomic.AtomicBoolean();
+
     public static final int WARP_TEMP = 30;
+
+    /**
+     * 永久 and sticky warp last written per player, so a tick that changed neither can be skipped.
+     * <p>
+     * Keyed by player name rather than by entity because the knowledge store is keyed that way too; the entry is
+     * dropped when the branch is taken off so putting it back on pins the warp again.
+     */
+    private static final java.util.Map<String, int[]> LAST_SEEN_WARP = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static final UUID HEALTH_MODIFIER_ID = UUID.fromString("3d1c8a52-6f47-4c1e-9b2e-5a7c4f0d8b31");
     private static final String HEALTH_MODIFIER_NAME = "Nascent White Branch";
@@ -125,7 +136,14 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
             }
         } catch (Throwable t) {
             // Baubles is reached through a reflective helper; if it is ever unhappy, the branch is simply not worn.
-            MyMod.LOG.debug("Could not read the bauble inventory of " + player.getCommandSenderName(), t);
+            // This runs every tick, so the failure is reported once - the trace is dropped from the message for the
+            // same reason: log4j walks the frames to format it, and that is not worth doing once per tick.
+            if (baubleFailureReported.compareAndSet(false, true)) {
+                MyMod.LOG.debug(
+                    "Could not read the bauble inventory of " + player.getCommandSenderName()
+                        + "; the Nascent White Branch will be treated as not worn. This is reported once.",
+                    t);
+            }
         }
         return false;
     }
@@ -214,7 +232,7 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
             keepFed(player);
             keepFlying(player);
             keepBuffed(player);
-            keepWarp(player);
+            keepWarp(player, justEquipped);
             if (justEquipped || player.ticksExisted % RESEARCH_INTERVAL == 0) unlockAllResearch(player);
             rescueFromTheVoid(player);
         } catch (Throwable t) {
@@ -231,6 +249,8 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
     }
 
     private static void removeEffects(EntityPlayer player) {
+        // Forget what the warp was pinned to, so putting the branch back on pins it again.
+        LAST_SEEN_WARP.remove(player.getCommandSenderName());
         try {
             IAttributeInstance health = player.getEntityAttribute(SharedMonsterAttributes.maxHealth);
             AttributeModifier healthModifier = health.getModifier(HEALTH_MODIFIER_ID);
@@ -284,19 +304,35 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
         }
     }
 
-    /** {@code FoodStats.saturationLevel}, which has no cross-side accessor in 1.7.10. */
+    /**
+     * {@code FoodStats.foodSaturationLevel}, which has no cross-side accessor in 1.7.10.
+     * <p>
+     * The field is named {@code foodSaturationLevel} in MCP and {@code field_75125_b} in the obfuscated runtime, so
+     * both are tried. An earlier version asked for {@code saturationLevel}, which is not a field of {@code FoodStats}
+     * at all - the real names are {@code foodSaturationLevel} / {@code field_75125_b}, and {@code field_75124_e} is
+     * {@code prevFoodLevel}.
+     * <p>
+     * The failure message is built from the throwable's class and text instead of handing the throwable itself to the
+     * logger. Log4j formats a throwable by walking its stack frames, which makes it load the classes those frames
+     * name; under GTNH's class loader that load can fail inside the logger, and the logger's own exception then
+     * escapes this catch and takes the whole pre-init down with it.
+     */
     private static Field saturationLevelField() {
-        try {
-            Field field = FoodStats.class.getDeclaredField("saturationLevel");
-            field.setAccessible(true);
-            return field;
-        } catch (Throwable t) {
-            MyMod.LOG.warn(
-                "Could not reach FoodStats.saturationLevel; the Nascent White Branch will keep the food level up but "
-                    + "leave saturation alone.",
-                t);
-            return null;
+        // The field is called foodSaturationLevel in MCP and field_75125_b in the obfuscated runtime. Both names are
+        // tried, so the same jar works in a dev environment and in a pack.
+        for (String name : new String[] { "foodSaturationLevel", "field_75125_b" }) {
+            try {
+                Field field = FoodStats.class.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (Throwable ignored) {
+                // try the next name
+            }
         }
+        MyMod.LOG.warn(
+            "Could not reach FoodStats.foodSaturationLevel; the Nascent White Branch will keep the food level up but "
+                + "leave saturation alone.");
+        return null;
     }
 
     /** Creative flight, handed out once and then left alone. */
@@ -322,25 +358,36 @@ public class ItemNascentWhiteBranch extends Item implements IBauble {
         }
     }
 
-    /** Temporary warp at {@value #WARP_TEMP}, sticky and permanent warp at zero, told to the client when it changes. */
-    private static void keepWarp(EntityPlayer player) {
+    /**
+     * 临时扭曲钉在 {@value #WARP_TEMP}，粘性与永久扭曲清零。
+     * <p>
+     * Pinned only when the branch is first worn and then only when a warp change is detected - the previous version
+     * compared against the target every tick, but temporary warp <em>decays on its own</em>, so
+     * {@code getWarpTemp() != WARP_TEMP} was true almost every second. Each of those wrote the value back and sent
+     * three sync packets, which is what made Thaumcraft spam the warp notice in the corner.
+     * <p>
+     * Decay is deliberately not treated as a change: re-pinning it would just restart the same loop. Only permanent and
+     * sticky warp are watched, because those are what other Thaumcraft content adds and what the branch exists to
+     * suppress.
+     */
+    private static void keepWarp(EntityPlayer player, boolean justEquipped) {
         PlayerKnowledge knowledge = Thaumcraft.proxy.getPlayerKnowledge();
         if (knowledge == null) return;
         String name = player.getCommandSenderName();
-        boolean changed = false;
-        if (knowledge.getWarpTemp(name) != WARP_TEMP) {
-            knowledge.setWarpTemp(name, WARP_TEMP);
-            changed = true;
-        }
-        if (knowledge.getWarpPerm(name) != 0) {
-            knowledge.setWarpPerm(name, 0);
-            changed = true;
-        }
-        if (knowledge.getWarpSticky(name) != 0) {
-            knowledge.setWarpSticky(name, 0);
-            changed = true;
-        }
-        if (changed) syncWarp(player);
+
+        int permanent = knowledge.getWarpPerm(name);
+        int sticky = knowledge.getWarpSticky(name);
+        int[] last = LAST_SEEN_WARP.get(name);
+
+        // Nothing to do on a tick where the warp we watch has not moved and the branch was already worn.
+        boolean changed = justEquipped || last == null || last[0] != permanent || last[1] != sticky;
+        if (!changed) return;
+
+        knowledge.setWarpTemp(name, WARP_TEMP);
+        knowledge.setWarpPerm(name, 0);
+        knowledge.setWarpSticky(name, 0);
+        LAST_SEEN_WARP.put(name, new int[] { 0, 0 });
+        syncWarp(player);
     }
 
     /**

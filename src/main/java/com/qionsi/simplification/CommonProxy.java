@@ -1,5 +1,7 @@
 package com.qionsi.simplification;
 
+import com.qionsi.simplification.block.AruStoneRecipes;
+import com.qionsi.simplification.block.ModBlocks;
 import com.qionsi.simplification.item.ModItems;
 
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -23,10 +25,17 @@ public class CommonProxy {
 
         // The bauble and its event handler are independent of GregTech, but they belong to the same pre-init.
         ModItems.register();
+
+        // 阿如的倒影 needs the 1.20.1 blocks that 1.7.10 never had; they are read when the structure is checked, so
+        // they have to exist before any machine is placed.
+        ModBlocks.register();
     }
 
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
-    public void init(FMLInitializationEvent event) {}
+    public void init(FMLInitializationEvent event) {
+        // The 阿如石 recipes need both the blocks and the vanilla catalysts, which all exist by now.
+        AruStoneRecipes.init();
+    }
 
     // postInit "Handle interaction with other mods, complete your setup based on this." (Remove if not needed)
     public void postInit(FMLPostInitializationEvent event) {

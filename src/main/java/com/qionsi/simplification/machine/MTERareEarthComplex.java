@@ -29,11 +29,12 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
+import com.gtnewhorizon.structurelib.StructureLibAPI;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -51,7 +52,6 @@ import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
 import gregtech.api.enums.VoidingMode;
 import gregtech.api.enums.VoltageIndex;
-import gregtech.api.interfaces.INEIPreviewModifier;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
@@ -92,7 +92,7 @@ import gtPlusPlus.core.block.ModBlocks;
  * {@link StructureBlueprintFile} reads at runtime.
  */
 public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareEarthComplex>
-    implements ISurvivalConstructable, ICasingTextureProvider, INEIPreviewModifier {
+    implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
 
@@ -210,6 +210,17 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
     }
 
     /** The structure definition, built from the blueprint the first time it is asked for. */
+    /**
+     * True when the stack is the hologram the NEI preview builds with, rather than a real projector the player holds.
+     * <p>
+     * The preview passes {@code StructureLibAPI.getDefaultHologramItem()}, which is not something a player ever gets,
+     * so it is a reliable way to tell the two apart.
+     */
+    private static boolean isPreviewTrigger(ItemStack trigger) {
+        Item hologram = StructureLibAPI.getDefaultHologramItem();
+        return hologram != null && trigger != null && trigger.getItem() == hologram;
+    }
+
     private static IStructureDefinition<MTERareEarthComplex> getDefinition() {
         if (DEFINITION == null) DEFINITION = buildDefinition();
         return DEFINITION;
@@ -233,6 +244,11 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
                         .atLeast(Energy.or(ExoticEnergy), Maintenance, InputBus, InputHatch, OutputBus, OutputHatch)
                         .casingIndex(inertCasingTextureIndex())
                         .hint(1)
+                        // The NEI preview hands out whatever it is asked for, hatches included, so every casing
+                        // position would render wearing a hatch. Filtering the hatch item out of the preview only
+                        // makes the element refuse and fall through to the casing behind it, which is what the
+                        // hologram should look like. A real projector keeps the normal filter.
+                        .hatchItemFilterAnd((t, trigger) -> isPreviewTrigger(trigger) ? item -> false : item -> true)
                         .buildAndChain(onElementPass(x -> ++x.inertCasings, ofBlock(GregTechAPI.sBlockCasings8, 0))))
                 // The heating coils, which set the machine's coil level.
                 .addElement(
@@ -387,19 +403,6 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
         return result;
     }
 
-    /**
-     * Keeps the NEI preview from filling every casing position with a hatch.
-     * <p>
-     * The hatch element asks for a real hatch item when it is placed, and the preview's item source is creative - it
-     * will hand over any hatch there is. The element only refuses to do that when the trigger carries no
-     * {@code GTStructureChannels.HATCH} value, so the preview is given one without it and the element falls through to
-     * the casing behind it. Without this, the whole chemically inert shell renders as a wall of hatch blocks.
-     */
-    @Override
-    public void onPreviewConstruct(ItemStack trigger) {
-        ChannelDataAccessor.unsetChannelData(trigger, GTStructureChannels.HATCH.get());
-    }
-
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, HORIZONTAL_OFF_SET, VERTICAL_OFF_SET, DEPTH_OFF_SET);
@@ -427,6 +430,10 @@ public class MTERareEarthComplex extends MTEExtendedPowerMultiBlockBase<MTERareE
             elementBudget,
             env,
             false,
+            // false here, deliberately: with the check enabled, a half-built hologram can satisfy the structure
+            // check, which flips mMachine on and makes every later call return -1 - the preview then stops early.
+            // Keeping it off lets the preview draw the whole machine; the hatch filtering below is what stops the
+            // casing positions from being filled with hatch blocks.
             false);
     }
 

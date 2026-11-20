@@ -40,5 +40,15 @@ public final class MetaTileIDs {
      */
     public static final int SIMPLE_WATER_PURIFIER_CONTROLLER = 32705;
 
+    /**
+     * 阿如的倒影 / Reflection of Aru controller.
+     */
+    public static final int ARU_REFLECTION_CONTROLLER = 32706;
+
+    /**
+     * 硅岩燃料研究与试验机 / Naquadah Fuel Research and Test Machine controller.
+     */
+    public static final int NAQUADAH_FUEL_LAB_CONTROLLER = 32707;
+
     private MetaTileIDs() {}
 }
