@@ -229,7 +229,7 @@ public final class NaquadahFuelRecipes {
         FluidStack oxygen = gas(Materials.Oxygen, 1_000);
         FluidStack hydrogen = gas(Materials.Hydrogen, 1_330);
         if (nitrogen == null || oxygen == null || hydrogen == null) return null;
-        return switch (grade) {
+        FluidStack[] result = switch (grade) {
             case 1 -> new FluidStack[] { nitrogen, oxygen, hydrogen, gas(Materials.Radon, 1_125) };
             case 2, 3 -> new FluidStack[] { nitrogen, oxygen, hydrogen };
             case 4 -> new FluidStack[] { gas(Materials.Nitrogen, 13_400), gas(Materials.Oxygen, 20_000),
@@ -241,6 +241,18 @@ public final class NaquadahFuelRecipes {
                 fluid(Materials.SpaceTime, 144) };
             default -> null;
         };
+        if (result == null) return null;
+        // GTRecipeBuilder.fluidInputs rejects nulls outright, and one missing fluid took the whole startup down with
+        // an IllegalArgumentException, so a grade whose feedstock cannot all be built is skipped with a reason.
+        for (FluidStack stack : result) {
+            if (stack == null) {
+                MyMod.LOG.error(
+                    "Skipping the Mk-{} Naquadah fuel recipes: one of their fluids does not exist in this pack.",
+                    grade);
+                return null;
+            }
+        }
+        return result;
     }
 
     /** The fuel a grade produces, or the depleted fuel in test mode. */
@@ -360,6 +372,14 @@ public final class NaquadahFuelRecipes {
     private static FluidStack fluid(Materials m, int amount) {
         if (m == null) return null;
         FluidStack f = m.getFluid(amount);
-        return f != null ? f : m.getGas(amount);
+        if (f != null) return f;
+        // 熔融无尽 / 熔融时空 / 浓缩原始恒星等离子体 only exist as molten forms, not as plain fluids.
+        try {
+            f = m.getMolten(amount);
+            if (f != null) return f;
+        } catch (Throwable ignored) {
+            // getMolten throws for materials with no molten form; fall through to the gas attempt.
+        }
+        return m.getGas(amount);
     }
 }
