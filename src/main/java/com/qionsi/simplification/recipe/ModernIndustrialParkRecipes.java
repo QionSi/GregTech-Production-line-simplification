@@ -26,7 +26,6 @@ import gregtech.common.items.CombType;
 import gregtech.loaders.misc.GTBees;
 import gtPlusPlus.core.fluids.GTPPFluids;
 import gtPlusPlus.core.material.MaterialsElements;
-import gtPlusPlus.xmod.gregtech.api.enums.GregtechItemList;
 
 /**
  * The recipes of the 现代产业园 / Modern Industrial Park, plus the assembler recipe that makes the controller.
@@ -304,8 +303,9 @@ public final class ModernIndustrialParkRecipes {
 
     /**
      * The controller's assembler recipe: circuit 15, sixteen each of the industrial blast furnace, electrolyzer, large
-     * chemical reactor, maceration stack, centrifuge, mixer, cryogenic freezer and chemical bath, at 4096 EU/t for 2400
-     * seconds as the design document specifies.
+     * chemical reactor, maceration stack, centrifuge, mixer, vacuum freezer and chemical bath, at 4096 EU/t for 2400
+     * seconds as the design document specifies. The freezer used to be GT++'s industrial cryogenic freezer, which is
+     * deprecated; the standard vacuum freezer takes its place.
      */
     private static void registerControllerAssembler() {
         var controller = GregTechAPI.METATILEENTITIES[MetaTileIDs.MODERN_INDUSTRIAL_PARK_CONTROLLER];
@@ -317,7 +317,7 @@ public final class ModernIndustrialParkRecipes {
         ItemStack[] parts = { ItemList.Machine_Multi_BlastFurnace.get(16), ItemList.IndustrialElectrolyzer.get(16),
             ItemList.Machine_Multi_LargeChemicalReactor.get(16), ItemList.MacerationStack.get(16),
             ItemList.IndustrialCentrifuge.get(16), ItemList.IndustrialMixer.get(16),
-            GregtechItemList.Industrial_Cryogenic_Freezer.get(16), ItemList.IndustrialChemicalBath.get(16) };
+            ItemList.Machine_Multi_VacuumFreezer.get(16), ItemList.IndustrialChemicalBath.get(16) };
         for (ItemStack part : parts) {
             if (part == null) {
                 MyMod.LOG.error(
