@@ -183,7 +183,8 @@ public final class ModRecipeMaps {
      */
     public static final RecipeMap<RecipeMapBackend> simpleWaterPurifierRecipes = RecipeMapBuilder
         .of("simplification.recipe.simple_water_purifier")
-        .maxIO(2, 2, 4, 8)
+        // Nine fluid outputs: the circuit 4 recipe adds 稳定重子物质 to the eight purified water grades.
+        .maxIO(2, 2, 4, 12)
         .minInputs(0, 1)
         .neiTransferRect(52, 24, 18, 54)
         .neiTransferRect(106, 24, 18, 54)

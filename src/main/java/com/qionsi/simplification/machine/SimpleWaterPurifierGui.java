@@ -40,6 +40,7 @@ public class SimpleWaterPurifierGui extends MTEMultiBlockBaseGui<MTESimpleWaterP
 
     private ToggleButton createWirelessButton(PanelSyncManager syncManager) {
         return createDisableableToggleButton(
+            syncManager,
             syncManager.findSyncHandler(WIRELESS_SYNC, BooleanSyncValue.class),
             () -> true,
             GTGuiTextures.OVERLAY_BUTTON_POWER_SWITCH_OFF,

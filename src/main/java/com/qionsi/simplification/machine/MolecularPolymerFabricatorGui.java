@@ -56,6 +56,7 @@ public class MolecularPolymerFabricatorGui extends MTEMultiBlockBaseGui<MTEMolec
      */
     private ToggleButton createWirelessEnergyButton(PanelSyncManager syncManager) {
         return createDisableableToggleButton(
+            syncManager,
             syncManager.findSyncHandler(WIRELESS_ENERGY_SYNC, BooleanSyncValue.class),
             () -> true,
             GTGuiTextures.OVERLAY_BUTTON_POWER_SWITCH_OFF,

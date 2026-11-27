@@ -143,6 +143,12 @@ public class MTENaquadahFuelLaboratory extends MTEExtendedPowerMultiBlockBase<MT
     /** Payout that has been produced but not handed to the dynamo hatches yet. */
     private java.math.BigInteger pendingDynamoEnergy = java.math.BigInteger.ZERO;
 
+    /** This machine's wireless network account, resolved on the first tick. */
+    private java.util.UUID ownerUUID;
+
+    /** What the current research run has reserved from the wireless network, or null when it is not paying from it. */
+    private java.math.BigInteger wirelessCost;
+
     /** Fuel grade of the run currently in progress, recorded when its recipe is validated. */
     private int activeGrade;
 
@@ -386,6 +392,22 @@ public class MTENaquadahFuelLaboratory extends MTEExtendedPowerMultiBlockBase<MT
     // ------------------------------------------------------------------ running
 
     @Override
+    public void onPreTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
+        super.onPreTick(aBaseMetaTileEntity, aTick);
+        if (aBaseMetaTileEntity.isServerSide() && aTick == 1) {
+            ownerUUID = gregtech.common.misc.WirelessNetworkManager.processInitialSettings(aBaseMetaTileEntity);
+        }
+    }
+
+    /** The wireless account, resolved lazily in case a recipe is checked before the first tick runs. */
+    private java.util.UUID wirelessOwner() {
+        if (ownerUUID == null) {
+            ownerUUID = gregtech.common.misc.WirelessNetworkManager.processInitialSettings(getBaseMetaTileEntity());
+        }
+        return ownerUUID;
+    }
+
+    @Override
     protected gregtech.api.logic.ProcessingLogic createProcessingLogic() {
         return new gregtech.api.logic.ProcessingLogic() {
 
@@ -395,8 +417,37 @@ public class MTENaquadahFuelLaboratory extends MTEExtendedPowerMultiBlockBase<MT
                 int grade = recipe.mSpecialValue;
                 if (grade < 1 || grade > COIL_REQUIRED.length) return CheckRecipeResultRegistry.NO_RECIPE;
                 if (fieldCoilTier < COIL_REQUIRED[grade - 1]) return CheckRecipeResultRegistry.NO_RECIPE;
+                wirelessCost = null;
+                if (getMachineMode() == MODE_RESEARCH && wirelessEnergyMode) {
+                    // Buying the whole run up front, the way the transcendent plasma mixer does: the wireless network
+                    // is asked for recipe EU/t x duration x parallels, and the run does not start if that is not there.
+                    java.math.BigInteger price = java.math.BigInteger.valueOf(recipe.mEUt)
+                        .multiply(java.math.BigInteger.valueOf(recipe.mDuration))
+                        .multiply(java.math.BigInteger.valueOf(Math.max(1, maxParallel)));
+                    java.math.BigInteger balance = gregtech.common.misc.WirelessNetworkManager
+                        .getUserEU(wirelessOwner());
+                    if (balance == null || balance.compareTo(price) < 0) {
+                        return CheckRecipeResultRegistry.insufficientStartupPower(price);
+                    }
+                    wirelessCost = price;
+                }
                 activeGrade = grade;
                 return CheckRecipeResultRegistry.SUCCESSFUL;
+            }
+
+            @Override
+            protected CheckRecipeResult onRecipeStart(gregtech.api.util.GTRecipe recipe) {
+                if (wirelessCost != null) {
+                    java.math.BigInteger price = wirelessCost;
+                    wirelessCost = null;
+                    if (!gregtech.common.misc.WirelessNetworkManager
+                        .addEUToGlobalEnergyMap(wirelessOwner(), price.negate())) {
+                        return CheckRecipeResultRegistry.insufficientStartupPower(price);
+                    }
+                    // The run is already paid for, so the machine must not also draw from any energy hatch.
+                    overwriteCalculatedEut(0);
+                }
+                return super.onRecipeStart(recipe);
             }
 
             @Override
@@ -477,7 +528,7 @@ public class MTENaquadahFuelLaboratory extends MTEExtendedPowerMultiBlockBase<MT
         // per tick, which no 64-bit type holds. BigInteger does.
         int coilTier = Math.min(Math.max(0, heatingCoil.getTier() + 1), 30);
         java.math.BigInteger total = java.math.BigInteger.valueOf(TEST_POWER[grade - 1])
-            .multiply(java.math.BigInteger.valueOf(Math.max(1, getMaxParallelRecipes())))
+            .multiply(java.math.BigInteger.valueOf(Math.max(1, getTrueParallel())))
             .shiftLeft(coilTier);
         if (total.signum() <= 0) return;
 
@@ -516,7 +567,7 @@ public class MTENaquadahFuelLaboratory extends MTEExtendedPowerMultiBlockBase<MT
         int grade = getCurrentFuelGrade();
         if (grade < 1 || grade > TEST_POWER.length) return 0;
         try {
-            long total = Math.multiplyExact(TEST_POWER[grade - 1], (long) Math.max(1, getMaxParallelRecipes()));
+            long total = Math.multiplyExact(TEST_POWER[grade - 1], (long) Math.max(1, getTrueParallel()));
             int coilTier = Math.min(Math.max(0, heatingCoil.getTier() + 1), 30);
             return Math.multiplyExact(total, 1L << coilTier);
         } catch (ArithmeticException overflow) {

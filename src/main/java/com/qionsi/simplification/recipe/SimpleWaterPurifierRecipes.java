@@ -128,7 +128,8 @@ public final class SimpleWaterPurifierRecipes {
             .specialValue(MTESimpleWaterPurifierTier.T3)
             .addTo(ModRecipeMaps.simpleWaterPurifierRecipes);
 
-        // circuit 4, at least t4: 100 mb of UU matter, grades 1 to 8. 16,776,000 EU/t for 120 s.
+        // circuit 4, at least t4: 100 mb of UU matter, grades 1 to 8 and 1000 mb of 稳定重子物质.
+        // 16,776,000 EU/t for 120 s.
         GTRecipeBuilder.builder()
             .circuit(4)
             .fluidInputs(Materials.Water.getFluid(1 * KMB), Materials.UUMatter.getFluid(100))
@@ -140,7 +141,8 @@ public final class SimpleWaterPurifierRecipes {
                 Materials.Grade5PurifiedWater.getFluid(1 * KMB),
                 Materials.Grade6PurifiedWater.getFluid(1 * KMB),
                 Materials.Grade7PurifiedWater.getFluid(1 * KMB),
-                Materials.Grade8PurifiedWater.getFluid(1 * KMB))
+                Materials.Grade8PurifiedWater.getFluid(1 * KMB),
+                Materials.StableBaryonicMatter.getFluid(1_000))
             .duration(RECIPE_TICKS)
             .eut(16_776_000)
             .specialValue(MTESimpleWaterPurifierTier.T4)

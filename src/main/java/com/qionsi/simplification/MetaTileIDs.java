@@ -50,5 +50,10 @@ public final class MetaTileIDs {
      */
     public static final int NAQUADAH_FUEL_LAB_CONTROLLER = 32707;
 
+    /**
+     * 电网升级仓 / Grid Upgrade Hatch. A marker hatch placed on the Simple Water Purifier.
+     */
+    public static final int HATCH_GRID_UPGRADE = 32708;
+
     private MetaTileIDs() {}
 }

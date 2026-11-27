@@ -164,6 +164,26 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
     /** True when the GUI switch has the machine paying out of the wireless network. */
     private boolean wirelessEnergyMode;
 
+    /** 电网升级仓 hatches on the structure. Only their presence matters; they store nothing. */
+    private final java.util.List<MTEHatchGridUpgrade> gridUpgradeHatches = new java.util.ArrayList<>();
+
+    /** Multiplier applied to the recipe's EU/t while the machine runs without a grid upgrade hatch. */
+    private double powerMultiplier = 1.0D;
+
+    /** Which progress marker the last random power change happened at: 0, 25 or 75. */
+    private int powerMarker;
+
+    /** Consecutive ticks the available power has been off the wanted value by more than 5%. */
+    private int offTargetTicks;
+
+    /** True once the current run has been punished, so the output is only reduced once. */
+    private boolean penaltyApplied;
+
+    /** EU/t the run started at, before any random variation. */
+    private int baseEut;
+
+    private static final java.util.Random RANDOM = new java.util.Random();
+
     private UUID ownerUUID;
 
     private BigInteger finalConsumption = BigInteger.ZERO;
@@ -236,7 +256,14 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
                 .addElement(
                     'F',
                     buildHatchAdder(MTESimpleWaterPurifier.class)
-                        .atLeast(Energy.or(ExoticEnergy), Maintenance, InputBus, InputHatch, OutputBus, OutputHatch)
+                        .atLeast(
+                            Energy.or(ExoticEnergy),
+                            Maintenance,
+                            InputBus,
+                            InputHatch,
+                            OutputBus,
+                            OutputHatch,
+                            GridUpgradeHatchElement.INSTANCE)
                         .casingIndex(Casings.ReinforcedSterileWaterPlantCasing.getTextureId())
                         .hint(1)
                         .buildAndChain(
@@ -331,6 +358,13 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
     public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> errors) {
         reinforcedCasings = 0;
         structureTier = 0;
+        gridUpgradeHatches.clear();
+        // A new structure means a new run: forget the previous variation and any punishment.
+        powerMultiplier = 1.0D;
+        powerMarker = 0;
+        offTargetTicks = 0;
+        penaltyApplied = false;
+        baseEut = 0;
         int tier = chipTier();
         if (tier == 0) {
             MyMod.LOG.warn(
@@ -418,7 +452,8 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
             @Override
             protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
                 if (structureTier < recipe.mSpecialValue) return CheckRecipeResultRegistry.NO_RECIPE;
-                if (!wirelessEnergyMode) return CheckRecipeResultRegistry.SUCCESSFUL;
+                // The wireless network only becomes usable once a 电网升级仓 is on the structure.
+                if (!wirelessEnergyMode || !hasGridUpgrade()) return CheckRecipeResultRegistry.SUCCESSFUL;
                 BigInteger cost = BigInteger.valueOf(recipe.mEUt)
                     .multiply(BigInteger.valueOf(recipe.mDuration));
                 BigInteger wanted = cost.multiply(BigInteger.valueOf(Math.max(1, maxParallel)));
@@ -437,7 +472,7 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
 
             @Override
             protected @Nonnull CheckRecipeResult onRecipeStart(@Nonnull GTRecipe recipe) {
-                if (!wirelessEnergyMode) return CheckRecipeResultRegistry.SUCCESSFUL;
+                if (!wirelessEnergyMode || !hasGridUpgrade()) return CheckRecipeResultRegistry.SUCCESSFUL;
                 finalConsumption = BigInteger.valueOf(recipe.mEUt)
                     .multiply(BigInteger.valueOf(recipe.mDuration))
                     .multiply(BigInteger.valueOf(-calculatedParallels));
@@ -454,6 +489,78 @@ public class MTESimpleWaterPurifier extends MTEExtendedPowerMultiBlockBase<MTESi
     @Override
     public int getMaxParallelRecipes() {
         return MAX_PARALLEL;
+    }
+
+    // ------------------------------------------------------------------ variable power
+
+    /**
+     * 变功率运行 / variable power draw.
+     * <p>
+     * Without a 电网升级仓 the machine does not hold a steady draw: at 25% and again at 75% of the recipe it re-rolls
+     * its consumption to a random point within +-20% of the recipe's own EU/t. It also watches what the energy hatches
+     * can actually deliver - if that differs from the value it is drawing by more than 5% for a continuous 15 seconds,
+     * the run is punished and produces only 5% of its output.
+     * <p>
+     * With a 电网升级仓 installed none of this happens: the draw is the recipe's own EU/t and there is no punishment.
+     */
+    private void updateVariablePower() {
+        if (mMaxProgresstime <= 0) return;
+        if (baseEut <= 0) baseEut = Math.max(1, mEUt);
+        int percent = (int) (100L * mProgresstime / mMaxProgresstime);
+        boolean atFirst = powerMarker == 0 && percent >= 25;
+        boolean atSecond = powerMarker == 25 && percent >= 75;
+        if (atFirst || atSecond) {
+            powerMarker = atSecond ? 75 : 25;
+            // -20% .. +20%
+            powerMultiplier = 0.8D + 0.4D * RANDOM.nextDouble();
+            if (baseEut > 0) mEUt = Math.max(1, (int) (baseEut * powerMultiplier));
+        }
+
+        long wanted = Math.max(1, mEUt);
+        long available = getMaxInputEu();
+        if (Math.abs(available - wanted) > wanted * 0.05D) {
+            if (++offTargetTicks > 15 * 20 && !penaltyApplied) {
+                penaltyApplied = true;
+                scaleOutputs(0.05D);
+                MyMod.LOG.info(
+                    "Simple Water Purifier: the energy hatches deliver {} EU/t but the machine is drawing {} EU/t, so "
+                        + "this run is punished to 5% output.",
+                    available,
+                    wanted);
+            }
+        } else {
+            offTargetTicks = 0;
+        }
+    }
+
+    /** Reduces every fluid this run will output, once. */
+    private void scaleOutputs(double factor) {
+        if (mOutputFluids == null) return;
+        for (net.minecraftforge.fluids.FluidStack stack : mOutputFluids) {
+            if (stack != null) stack.amount = Math.max(1, (int) (stack.amount * factor));
+        }
+    }
+
+    @Override
+    public boolean onRunningTick(ItemStack aStack) {
+        if (!hasGridUpgrade()) updateVariablePower();
+        return super.onRunningTick(aStack);
+    }
+
+    // ------------------------------------------------------------------ grid upgrade hatch
+
+    /** Called by {@link GridUpgradeHatchElement} for each 电网升级仓 found on the structure. */
+    public boolean addGridUpgradeHatch(MTEHatchGridUpgrade hatch) {
+        return hatch != null && !gridUpgradeHatches.contains(hatch) && gridUpgradeHatches.add(hatch);
+    }
+
+    public java.util.List<MTEHatchGridUpgrade> getGridUpgradeHatches() {
+        return gridUpgradeHatches;
+    }
+
+    /** True when the structure carries at least one 电网升级仓. */
+    public boolean hasGridUpgrade() {
+        return !gridUpgradeHatches.isEmpty();
     }
 
     // ------------------------------------------------------------------ wireless

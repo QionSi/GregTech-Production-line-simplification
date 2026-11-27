@@ -1,6 +1,7 @@
 package com.qionsi.simplification;
 
 import com.qionsi.simplification.machine.MTEAruReflection;
+import com.qionsi.simplification.machine.MTEHatchGridUpgrade;
 import com.qionsi.simplification.machine.MTEModernIndustrialPark;
 import com.qionsi.simplification.machine.MTEMolecularPolymerFabricator;
 import com.qionsi.simplification.machine.MTENaquadahFuelLaboratory;
@@ -9,6 +10,7 @@ import com.qionsi.simplification.machine.MTERareEarthComplex;
 import com.qionsi.simplification.machine.MTESimpleWaterPurifier;
 import com.qionsi.simplification.machine.MTETranscendentCatalystMaker;
 import com.qionsi.simplification.recipe.AruReflectionRecipe;
+import com.qionsi.simplification.recipe.GridUpgradeHatchRecipes;
 import com.qionsi.simplification.recipe.ModRecipeMaps;
 import com.qionsi.simplification.recipe.ModRecipes;
 import com.qionsi.simplification.recipe.ModernIndustrialParkRecipes;
@@ -44,6 +46,9 @@ public final class ModContent {
     public static boolean register() {
         if (registered) return true;
         registered = true;
+
+        registerGridUpgradeHatch();
+        GridUpgradeHatchRecipes.init();
 
         if (!registerMachine(
             MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER,
@@ -189,6 +194,24 @@ public final class ModContent {
      * rather than the first time a player tries to build the machine. Failures are caught inside and fall back to a
      * working one block structure, so this cannot stop the game from starting.
      */
+    /**
+     * Registers 电网升级仓.
+     * <p>
+     * It is a hatch, not a controller, so it does not go through {@link #registerMachine}: that helper exists to give
+     * the multiblock controllers their error handling and structure preparation.
+     */
+    private static void registerGridUpgradeHatch() {
+        try {
+            new MTEHatchGridUpgrade(MetaTileIDs.HATCH_GRID_UPGRADE, "hatch.gridupgrade", "Grid Upgrade Hatch", 14);
+        } catch (Throwable t) {
+            MyMod.LOG.error(
+                "Could not register the Grid Upgrade Hatch at MetaTileEntity id {}. Another mod may already use that "
+                    + "id; change MetaTileIDs.HATCH_GRID_UPGRADE.",
+                MetaTileIDs.HATCH_GRID_UPGRADE,
+                t);
+        }
+    }
+
     private static boolean registerMachine(int id, String name, String idConstant, Runnable prepareStructure) {
         try {
             if (id == MetaTileIDs.PETROCHEMICAL_COMPLEX_CONTROLLER) {

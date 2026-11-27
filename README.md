@@ -17,6 +17,12 @@ This project aims to simplify the complex production line in GTNH or add an addi
 
 分子聚合物制造机
 
+硅岩燃料研究与试验机
+
+未完成机器：
+阿如的倒影
+
+
 
 
 
